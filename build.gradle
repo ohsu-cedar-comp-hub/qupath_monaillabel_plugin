@@ -4,6 +4,12 @@ plugins {
     id 'maven-publish'
 }
 
+subprojects {
+    apply plugin: 'java'
+
+    // Common configuration for all subprojects can be added here
+}
+
 // We don't want to generate javadocs for the root project
 javadoc.enabled = false
 

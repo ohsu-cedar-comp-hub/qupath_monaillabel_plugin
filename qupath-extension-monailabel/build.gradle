@@ -1,0 +1,15 @@
+plugins {
+    id 'qupath.extension-conventions'
+    id 'java-library'
+
+    alias(libs.plugins.javafx)
+}
+
+ext.moduleName = 'qupath.extension.monailabel'
+
+base {
+    archivesName = 'qupath-extension-monailabel'
+    description = "QuPath extension for MONAILabel"
+}
+
+
