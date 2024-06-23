@@ -1,0 +1,20 @@
+plugins {
+    id 'qupath.extension-conventions'
+    id 'java-library'
+
+    alias(libs.plugins.javafx)
+}
+
+ext.moduleName = 'qupath.extension.cedar'
+
+base {
+    archivesName = 'qupath-extension-cedar'
+    description = "QuPath extension for CEDAR"
+}
+
+dependencies {
+    implementation project(':qupath-extension-monailabel')
+
+    implementation libs.qupath.fxtras // Some basic GUI classes and methods
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.14.3'
+}

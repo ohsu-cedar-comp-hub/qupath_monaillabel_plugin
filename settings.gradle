@@ -23,8 +23,11 @@ include 'qupath-extension-script-editor'
 include 'qupath-extension-openslide'
 include 'qupath-extension-bioformats'
 
-// Monailab extension here to make debugging easy
+// Monailabel extension here to make debugging easy
 include 'qupath-extension-monailabel'
+
+// CEDAR extension to MonailLabel
+include 'qupath-extension-cedar'
 
 // Support JavaFX dependency override
 // This can be used to create a build for older versions of macOS
@@ -39,3 +42,5 @@ dependencyResolutionManagement {
         }
     }
 }
+include 'qupath-extension-cedar'
+
