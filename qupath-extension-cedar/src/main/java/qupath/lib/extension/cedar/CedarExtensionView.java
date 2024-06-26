@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -13,24 +14,23 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.*;
-import org.controlsfx.tools.Borders;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
-import qupath.lib.geom.Point;
 import qupath.lib.geom.Point2;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.images.ImageData;
 import qupath.lib.objects.PathObject;
 import qupath.lib.objects.PathObjects;
 import qupath.lib.objects.classes.PathClass;
+import qupath.lib.objects.hierarchy.PathObjectHierarchy;
+import qupath.lib.objects.hierarchy.events.PathObjectHierarchyEvent;
+import qupath.lib.objects.hierarchy.events.PathObjectHierarchyListener;
 import qupath.lib.regions.ImagePlane;
 import qupath.lib.roi.ROIs;
 import qupath.lib.roi.interfaces.ROI;
 import qupath.lib.scripting.QP;
 
-import javax.swing.*;
-import javax.swing.border.EtchedBorder;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -52,10 +52,14 @@ public class CedarExtensionView {
     private File currentFolder;
     // List of image files
     private ListView<File> imageList;
+    // The current image file shown
+    private File currentImageFile;
     // Used to display annoations
     private TableView<CedarAnnotation> annotationTable;
     private Button updateAnnoationBtn;
     private QuPathGUI qupath;
+    // Track the PathObject change
+    private PathObjectHierarchyListener pathListener;
 
     private static CedarExtensionView view;
 
@@ -72,6 +76,43 @@ public class CedarExtensionView {
 
     public void setQupath(QuPathGUI qupath) {
         this.qupath = qupath;
+        this.qupath.getStage().setOnCloseRequest(event -> {
+            Platform.runLater(() -> saveAnnoations());
+        });
+        pathListener = new PathObjectHierarchyListener() {
+            @Override
+            public void hierarchyChanged(PathObjectHierarchyEvent event) {
+                handlePathObjectChangeEvent(event);
+            }
+        };
+    }
+
+    private void handlePathObjectChangeEvent(PathObjectHierarchyEvent event) {
+        List<PathObject> changedObjects = event.getChangedObjects();
+        if (changedObjects == null || changedObjects.size() == 0)
+            return;
+        if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.REMOVED) {
+            List<CedarAnnotation> toBeRemoved = new ArrayList<>();
+            for (CedarAnnotation annotation : annotationTable.getItems()) {
+                if (changedObjects.contains(annotation.getPathObject())) {
+                    toBeRemoved.add(annotation);
+                }
+            }
+            annotationTable.getItems().removeAll(toBeRemoved);
+        }
+        else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.ADDED) {
+            List<CedarAnnotation> toBeAdded = new ArrayList<>();
+            for (PathObject pathObject : changedObjects) {
+                CedarAnnotation cedarAnnotation = new CedarAnnotation();
+                cedarAnnotation.setPathObject(pathObject);
+                cedarAnnotation.setAnnotationStyle("manual");
+                cedarAnnotation.setClassName("-1"); // Use -1 as a flag for not labeled
+                cedarAnnotation.setMetaData("Created in QuPath");
+                toBeAdded.add(cedarAnnotation);
+            }
+            annotationTable.getItems().addAll(toBeAdded);
+        }
+        updateAnnoationBtn.setDisable(false);
     }
 
     private void init() {
@@ -105,6 +146,24 @@ public class CedarExtensionView {
         vbox.getChildren().add(imageList);
 
         annotationTable = new TableView<>();
+        initAnnotationTable();
+        vbox.getChildren().add(annotationTable);
+
+        HBox buttonBox = new HBox();
+        buttonBox.setAlignment(Pos.CENTER);
+        updateAnnoationBtn = new Button("Update Annotation");
+        updateAnnoationBtn.setOnAction(e -> {
+            saveAnnoations();
+            updateAnnoationBtn.setDisable(true); // Disable it after saving
+        });
+        updateAnnoationBtn.setDisable(true);
+        buttonBox.getChildren().add(updateAnnoationBtn);
+        vbox.getChildren().add(buttonBox);
+
+        ((BorderPane)contentPane).setCenter(vbox);
+    }
+
+    private void initAnnotationTable() {
         annotationTable.setEditable(true); // Enable editing
         annotationTable.getSelectionModel().selectedItemProperty().addListener((observable -> {
             handleAnnotationTableSelection();
@@ -126,24 +185,12 @@ public class CedarExtensionView {
         TableColumn<CedarAnnotation, String> metaDataSol = createTableColumn("metadata",
                 "metaData");
         metaDataSol.setOnEditCommit(event -> {
-            event.getRowValue().setAnnotationStyle(event.getNewValue());
+            event.getRowValue().setMetaData(event.getNewValue());
             updateAnnoationBtn.setDisable(false);
         });
 
         annotationTable.getColumns().addAll(classCol, annotationStyleCol, metaDataSol);
         annotationTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
-
-        vbox.getChildren().add(annotationTable);
-
-        HBox buttonBox = new HBox();
-        buttonBox.setAlignment(Pos.CENTER);
-        updateAnnoationBtn = new Button("Update Annotation");
-        updateAnnoationBtn.setOnAction(e -> saveAnnoations());
-        updateAnnoationBtn.setDisable(true);
-        buttonBox.getChildren().add(updateAnnoationBtn);
-        vbox.getChildren().add(buttonBox);
-
-        ((BorderPane)contentPane).setCenter(vbox);
     }
 
     private TableColumn<CedarAnnotation, String> createTableColumn(String colName, String propName) {
@@ -174,11 +221,15 @@ public class CedarExtensionView {
     }
 
     private void saveAnnoations() {
+        // Should not save if it is disabled
+        if (this.updateAnnoationBtn.isDisabled() || this.currentImageFile == null)
+            return; // Do nothing
+        logger.info("Saving annotations for " + imageList.getSelectionModel().getSelectedItem());
         ObjectMapper mapper = new ObjectMapper();
         ObjectNode json = mapper.createObjectNode();
         // Get the image name
-        File imageFile = imageList.getSelectionModel().getSelectedItem();
-        json.put("image_name", imageFile.getName());
+        String imageName = this.currentImageFile.getName();
+        json.put("image_name", imageName);
         ArrayNode classArray = mapper.createArrayNode();
         ArrayNode annotationArray = mapper.createArrayNode();
         ArrayNode metaArray = mapper.createArrayNode();
@@ -211,13 +262,25 @@ public class CedarExtensionView {
 
         ObjectWriter writer = mapper.writerWithDefaultPrettyPrinter();
 
-        File outputFile = new File(currentFolder, "output.json");
         try {
-            writer.writeValue(outputFile, json);
+            File annoationFile = getAnnotationFileForImage(currentImageFile);
+            backupAnnonations(annoationFile);
+            writer.writeValue(annoationFile, json);
         }
         catch(IOException e) {
             logger.error("Cannot save the annotation: " + e.getMessage(), e);
         }
+    }
+
+    private void backupAnnonations(File annoationFile) {
+        if (!annoationFile.exists())
+            return;
+        // Change the file name to .json.bak
+        String backupFileName = annoationFile.getAbsolutePath() + ".bak";
+        File backupFile = new File(backupFileName);
+        if (backupFile.exists())
+            backupFile.delete(); // Delete it
+        annoationFile.renameTo(backupFile);
     }
 
     private File getImagesFolder(File folder) {
@@ -230,6 +293,14 @@ public class CedarExtensionView {
         if (folder == null)
             folder = this.currentFolder;
         return new File(folder, "annotations");
+    }
+
+    private File getAnnotationFileForImage(File imageFile) {
+        String imageFileName = imageFile.getName();
+        int index = imageFileName.lastIndexOf(".");
+        String annotationFileName = imageFileName.substring(0, index) + ".json";
+        File annotationFile = new File(getAnnotationsFolder(currentFolder), annotationFileName);
+        return annotationFile;
     }
 
     public void setFolder(File folder) {
@@ -277,8 +348,21 @@ public class CedarExtensionView {
      */
     private boolean loadImage(File imageFile) {
         try {
+            // Save the annotation first in case there is something changed there.
+            saveAnnoations();
             logger.info("Loading image: " + imageFile.getAbsolutePath());
-            return this.qupath.openImage(this.qupath.getViewer(), imageFile.getAbsolutePath());
+            this.currentImageFile = imageFile;
+            boolean rtn = this.qupath.openImage(this.qupath.getViewer(), imageFile.getAbsolutePath());
+            if (rtn) {
+                // Just in case it has been added
+                PathObjectHierarchy hierarchy = qupath.getViewer().getHierarchy();
+                if (hierarchy != null) {
+                    // Just in case this has been added
+                    hierarchy.removeListener(this.pathListener);
+                    hierarchy.addListener(this.pathListener);
+                }
+            }
+            return rtn;
         }
         catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Image",
@@ -298,14 +382,12 @@ public class CedarExtensionView {
         File annotationFolder = getAnnotationsFolder(this.currentFolder);
         if (!annotationFolder.exists())
             return false; // Should not occur
-        String imageFileName = imageFile.getName();
-        int index = imageFileName.lastIndexOf(".");
-        String annotationFileName = imageFileName.substring(0, index) + ".json";
-        File annotationFile = new File(annotationFolder, annotationFileName);
+        // Load new annotations
+        File annotationFile = getAnnotationFileForImage(imageFile);
         // This may be possible. Create a warning
         if (!annotationFile.exists()) {
             Dialogs.showWarningNotification("No Annotation File",
-                    "Cannot find an annotation file for the image file, " + imageFileName + ".");
+                    "Cannot find an annotation file for the image file, " + imageFile.getName() + ".");
             return false;
         }
         try {
