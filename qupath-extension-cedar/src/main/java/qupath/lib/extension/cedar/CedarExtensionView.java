@@ -107,6 +107,16 @@ public class CedarExtensionView {
         else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.ADDED) {
             List<CedarAnnotation> toBeAdded = new ArrayList<>();
             for (PathObject pathObject : changedObjects) {
+                // For some reason, the same PathObject is passed as ADDED multiple time
+                boolean existed = false;
+                for (CedarAnnotation annotation : annotationTable.getItems()) {
+                    if (annotation.getPathObject() == pathObject) {
+                        existed = true;
+                        break;
+                    }
+                }
+                if (existed)
+                    continue;
                 CedarAnnotation cedarAnnotation = new CedarAnnotation();
                 cedarAnnotation.setPathObject(pathObject);
                 cedarAnnotation.setAnnotationStyle("manual");
@@ -114,7 +124,8 @@ public class CedarExtensionView {
                 cedarAnnotation.setMetaData("Created in QuPath");
                 toBeAdded.add(cedarAnnotation);
             }
-            annotationTable.getItems().addAll(toBeAdded);
+            if (toBeAdded.size() > 0)
+                annotationTable.getItems().addAll(toBeAdded);
         }
         updateAnnoationBtn.setDisable(false);
     }
