@@ -9,7 +9,9 @@ import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.geometry.VerticalDirection;
 import javafx.scene.control.*;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -157,12 +159,16 @@ public class CedarExtensionView {
             handleImageSelection();
         });
 
-        VBox.setVgrow(imageList, Priority.ALWAYS);
-        vbox.getChildren().add(imageList);
-
         annotationTable = new TableView<>();
         initAnnotationTable();
-        vbox.getChildren().add(annotationTable);
+
+        // Add image list and table into a splitpane
+        SplitPane splitPane = new SplitPane();
+        splitPane.setOrientation(Orientation.VERTICAL);
+        splitPane.getItems().addAll(imageList, annotationTable);
+        splitPane.setDividerPositions(0.5d);
+        vbox.getChildren().add(splitPane);
+        VBox.setVgrow(splitPane, Priority.ALWAYS);
 
         HBox buttonBox = new HBox();
         buttonBox.setAlignment(Pos.CENTER);
