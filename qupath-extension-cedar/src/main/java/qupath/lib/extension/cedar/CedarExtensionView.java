@@ -122,7 +122,7 @@ public class CedarExtensionView {
                 CedarAnnotation cedarAnnotation = new CedarAnnotation();
                 cedarAnnotation.setPathObject(pathObject);
                 cedarAnnotation.setAnnotationStyle("manual");
-                cedarAnnotation.setClassName("-1"); // Use -1 as a flag for not labeled
+                cedarAnnotation.setClassName("0"); // Use -1 as a flag for not labeled
                 cedarAnnotation.setMetaData("Created in QuPath");
                 toBeAdded.add(cedarAnnotation);
             }
