@@ -1,10 +1,13 @@
 package qupath.lib.extension.cedar;
 
+import javafx.beans.property.SimpleIntegerProperty;
 import javafx.beans.property.SimpleStringProperty;
 import qupath.lib.objects.PathAnnotationObject;
 import qupath.lib.objects.PathObject;
+import qupath.lib.objects.classes.PathClass;
 
 public class CedarAnnotation {
+    private SimpleIntegerProperty classId;
     private SimpleStringProperty className;
     private SimpleStringProperty annotationStyle;
     private SimpleStringProperty metaData;
@@ -13,8 +16,21 @@ public class CedarAnnotation {
 
     public CedarAnnotation() {}
 
+    public Integer getClassId() {
+        return classId.get();
+    }
+
     public String getClassName() {
-        return className.get();
+        return this.className.get();
+    }
+
+    public void setClassName(String name) {
+        if (this.className == null)
+            this.className = new SimpleStringProperty(name);
+        else
+            this.className.set(name);
+        if (pathObject != null)
+            pathObject.setPathClass(PathClass.fromString(name));
     }
 
     public String getAnnotationStyle() {
@@ -39,11 +55,11 @@ public class CedarAnnotation {
             this.metaData.set(metaData);
     }
 
-    public void setClassName(String className) {
-        if (this.className == null)
-            this.className = new SimpleStringProperty(className);
+    public void setClassId(Integer id) {
+        if (this.classId == null)
+            this.classId = new SimpleIntegerProperty(id);
         else
-            this.className.set(className);
+            this.classId.set(id);
     }
 
     public PathObject getPathObject() {

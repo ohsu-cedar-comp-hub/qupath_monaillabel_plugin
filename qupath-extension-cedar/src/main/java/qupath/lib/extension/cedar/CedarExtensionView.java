@@ -5,13 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
-import javafx.geometry.VerticalDirection;
 import javafx.scene.control.*;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -19,13 +17,12 @@ import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.layout.*;
 import javafx.stage.WindowEvent;
+import javafx.util.StringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
 import qupath.lib.geom.Point2;
 import qupath.lib.gui.QuPathGUI;
-import qupath.lib.gui.viewer.QuPathViewer;
-import qupath.lib.gui.viewer.QuPathViewerListener;
 import qupath.lib.images.ImageData;
 import qupath.lib.objects.PathObject;
 import qupath.lib.objects.PathObjects;
@@ -38,9 +35,9 @@ import qupath.lib.roi.ROIs;
 import qupath.lib.roi.interfaces.ROI;
 import qupath.lib.scripting.QP;
 
-import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.io.FileFilter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -122,7 +119,7 @@ public class CedarExtensionView {
                 CedarAnnotation cedarAnnotation = new CedarAnnotation();
                 cedarAnnotation.setPathObject(pathObject);
                 cedarAnnotation.setAnnotationStyle("manual");
-                cedarAnnotation.setClassName("0"); // Use -1 as a flag for not labeled
+                cedarAnnotation.setClassId(-1); // Use -1 as a flag for not labeled
                 cedarAnnotation.setMetaData("Created in QuPath");
                 toBeAdded.add(cedarAnnotation);
             }
@@ -190,13 +187,19 @@ public class CedarExtensionView {
             handleAnnotationTableSelection();
         }));
 
-        TableColumn<CedarAnnotation, String> classCol = createTableColumn("class", "className");
+        TableColumn<CedarAnnotation, Integer> classIdCol = createTableIdColumn("class id", "classId");
+        classIdCol.setOnEditCommit(event -> {
+            event.getRowValue().setClassId(event.getNewValue());
+            updateAnnoationBtn.setDisable(false);
+        });
+
+        TableColumn<CedarAnnotation, String> classCol = createTableColumn("class name", "className");
         classCol.setOnEditCommit(event -> {
             event.getRowValue().setClassName(event.getNewValue());
             updateAnnoationBtn.setDisable(false);
         });
 
-        TableColumn<CedarAnnotation, String> annotationStyleCol = createTableColumn("annotation style",
+        TableColumn<CedarAnnotation, String> annotationStyleCol = createTableColumn("type", // Make the name simple
                 "annotationStyle");
         annotationStyleCol.setOnEditCommit(event -> {
             event.getRowValue().setAnnotationStyle(event.getNewValue());
@@ -210,8 +213,14 @@ public class CedarExtensionView {
             updateAnnoationBtn.setDisable(false);
         });
 
-        annotationTable.getColumns().addAll(classCol, annotationStyleCol, metaDataSol);
+        annotationTable.getColumns().addAll(classIdCol, classCol, annotationStyleCol, metaDataSol);
         annotationTable.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_ALL_COLUMNS);
+        // Set some default width
+        // Bind preferred width of columns to TableView width
+        annotationTable.widthProperty().addListener((obs, oldWidth, newWidth) -> {
+            double tableWidth = newWidth.doubleValue();
+            classCol.setPrefWidth(tableWidth * 0.5); // 50% of table width
+        });
     }
 
     private TableColumn<CedarAnnotation, String> createTableColumn(String colName, String propName) {
@@ -219,6 +228,30 @@ public class CedarExtensionView {
         classCol.setCellValueFactory(new PropertyValueFactory<>(propName));
         // Have to call this. Otherwise, the table cannot be edited.
         classCol.setCellFactory(TextFieldTableCell.forTableColumn());
+        classCol.setEditable(true);
+        return classCol;
+    }
+
+    private TableColumn<CedarAnnotation, Integer> createTableIdColumn(String colName, String propName) {
+        TableColumn<CedarAnnotation, Integer> classCol = new TableColumn<>(colName);
+        classCol.setCellValueFactory(new PropertyValueFactory<>(propName));
+        // Have to call this. Otherwise, the table cannot be edited.
+        // Create a StringConverter for Integer
+        StringConverter<Integer> integerStringConverter = new StringConverter<Integer>() {
+            @Override
+            public String toString(Integer object) {
+                return object != null ? object.toString() : "";
+            }
+            @Override
+            public Integer fromString(String string) {
+                try {
+                    return Integer.valueOf(string);
+                } catch (NumberFormatException e) {
+                    return null;
+                }
+            }
+        };
+        classCol.setCellFactory(TextFieldTableCell.forTableColumn(integerStringConverter));
         classCol.setEditable(true);
         return classCol;
     }
@@ -258,7 +291,7 @@ public class CedarExtensionView {
         for (CedarAnnotation annotation : annotationTable.getItems()) {
             // Force it to integer
             // TODO: This may need to discuss
-            classArray.add(Integer.parseInt(annotation.getClassName()));
+            classArray.add(annotation.getClassId());
             annotationArray.add(annotation.getAnnotationStyle());
             metaArray.add(annotation.getMetaData());
             // Create a path
@@ -351,7 +384,14 @@ public class CedarExtensionView {
         // Should be checked
         if (!imageFolder.exists())
             return;
-        File[] files = imageFolder.listFiles();
+        FileFilter filter = new FileFilter() {
+            @Override
+            public boolean accept(File file) {
+                String fileName   = file.getName();
+                return !file.getName().startsWith("."); // Include all no hidden files
+            }
+        };
+        File[] files = imageFolder.listFiles(filter);
         Arrays.sort(files, Comparator.comparing(File::getName));
         for (File file : files) {
             imageList.getItems().add(file);
@@ -440,8 +480,8 @@ public class CedarExtensionView {
                 List<Point2> pointsList = new ArrayList<>();
                 for (int j = 0; j < annotation.size(); j++) {
                     JsonNode point = annotation.get(j);
-                    double x = point.get(0).asDouble();
-                    double y = point.get(1).asDouble();
+                    double x = point.get(1).asDouble();
+                    double y = point.get(0).asDouble();
                     pointsList.add(new Point2(x, y));
                 }
                 ImagePlane plane = ImagePlane.getPlane(0, 0);
@@ -451,16 +491,19 @@ public class CedarExtensionView {
                 String annotationStyle = annoStyleNode.get(i).textValue();
                 String metadata = metadataNode.get(i).textValue();
                 // This should use to String since the original value is a class
-                String annotationClass = classNode.get(i).toString();
+                String annotationClassId = classNode.get(i).toString();
+                Integer classId = Integer.parseInt(annotationClassId);
                 CedarAnnotation cedarAnnotation = new CedarAnnotation();
                 cedarAnnotation.setAnnotationStyle(annotationStyle);
                 cedarAnnotation.setPathObject(annotationObject);
-                cedarAnnotation.setClassName(annotationClass);
+                cedarAnnotation.setClassId(classId);
                 cedarAnnotation.setMetaData(metadata);
                 cedarAnnotations.add(cedarAnnotation);
 
                 // Assign class to annoationObject so that we can see different colors
-                annotationObject.setPathClass(PathClass.fromString(annotationClass));
+                PathClass pathCls = CedarPathClassHandler.getHandler().getPathClass(cedarAnnotation.getClassId());
+                annotationObject.setPathClass(pathCls);
+                cedarAnnotation.setClassName(pathCls.getName());
                 imageData.getHierarchy().addObject(annotationObject, false);
 
             }

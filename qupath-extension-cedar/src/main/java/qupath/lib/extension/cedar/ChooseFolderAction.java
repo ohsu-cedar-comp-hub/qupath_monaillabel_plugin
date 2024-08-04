@@ -1,30 +1,11 @@
 package qupath.lib.extension.cedar;
 
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import qupath.fx.dialogs.Dialogs;
 import qupath.fx.dialogs.FileChoosers;
-import qupath.lib.geom.Point2;
 import qupath.lib.gui.QuPathGUI;
-import qupath.lib.images.ImageData;
-import qupath.lib.objects.PathAnnotationObject;
-import qupath.lib.objects.PathObject;
-import qupath.lib.objects.PathObjects;
-import qupath.lib.objects.classes.PathClass;
-import qupath.lib.regions.ImagePlane;
-import qupath.lib.roi.ROIs;
-import qupath.lib.roi.interfaces.ROI;
-import qupath.lib.scripting.QP;
 
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
 
 public class ChooseFolderAction implements  Runnable {
     private final QuPathGUI qupath;
@@ -50,6 +31,9 @@ public class ChooseFolderAction implements  Runnable {
         if (imageAndAnnotFolder == null)
             return; // Nothing needs to be done. The user cancel the action
         view.setFolder(imageAndAnnotFolder);
+
+        // Set available pathway classes
+        CedarPathClassHandler.getHandler().setPathClasses(this.qupath);
     }
 
     private Tab findTabView(TabPane tabPane, CedarExtensionView view) {
