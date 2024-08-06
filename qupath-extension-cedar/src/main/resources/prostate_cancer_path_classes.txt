@@ -1,0 +1,19 @@
+1	Prostatic adenocarcinoma, Gleason pattern 3
+2	Prostatic adenocarcinoma, Gleason pattern 4, cribriform glands
+3	Prostatic adenocarcinoma, Gleason pattern 4, poorly-formed glands
+4	Prostatic adenocarcinoma, Gleason pattern 4, fused glands
+5	Prostatic adenocarcinoma, Gleason pattern 4, glomeruloid glands
+6	Prostatic adenocarcinoma, Gleason pattern 5, single cells
+7	Prostatic adenocarcinoma, Gleason pattern 5, sheets
+8	Prostatic adenocarcinoma, Gleason pattern 5, cords
+9	Prostatic adenocarcinoma, Gleason pattern 5, solid nests
+10	Prostatic adenocarcinoma, Gleason pattern 5, necrosis
+11	Prostatic intraepithelial neoplasia
+12	Benign gland
+13	Glandular atrophy
+14	Nerve
+15	Vein / artery
+16	Chronic inflammation
+17	Background stroma (fibromuscular stroma)
+18	Not segmented correctly (e.g. multiple classes segmented together)
+19	Tissue processing artifact (not evaluable)
