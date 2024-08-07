@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -15,6 +16,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
+import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.stage.WindowEvent;
 import javafx.util.StringConverter;
@@ -30,6 +32,7 @@ import qupath.lib.objects.classes.PathClass;
 import qupath.lib.objects.hierarchy.PathObjectHierarchy;
 import qupath.lib.objects.hierarchy.events.PathObjectHierarchyEvent;
 import qupath.lib.objects.hierarchy.events.PathObjectHierarchyListener;
+import qupath.lib.objects.hierarchy.events.PathObjectSelectionListener;
 import qupath.lib.regions.ImagePlane;
 import qupath.lib.roi.ROIs;
 import qupath.lib.roi.interfaces.ROI;
@@ -39,10 +42,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
+import java.util.*;
 
 /**
  * The view of the cedar extension. A new tab will be added to the analysis tab panel of the main QuPathGUI.
@@ -65,6 +65,12 @@ public class CedarExtensionView {
     private QuPathGUI qupath;
     // Track the PathObject change
     private PathObjectHierarchyListener pathListener;
+    // Track the selection in the image view
+    private PathObjectSelectionListener pathObjectSelectionListener;
+    // A flag indicating the internal table selection
+    private boolean isHandlingPathObjectSelection;
+    // Keep previous hierarchy so that we can remove listeners
+    private PathObjectHierarchy pathObjectHierarchy;
 
     private static CedarExtensionView view;
 
@@ -88,7 +94,44 @@ public class CedarExtensionView {
                 handlePathObjectChangeEvent(event);
             }
         };
+        pathObjectSelectionListener = new PathObjectSelectionListener() {
+            @Override
+            public void selectedPathObjectChanged(PathObject pathObjectSelected,
+                                                  PathObject previousObject,
+                                                  Collection<PathObject> allSelected) {
+                handlePathObjectSelectionEvent(pathObjectSelected);
+            }
+        };
     }
+
+    private void handlePathObjectSelectionEvent(PathObject pathObjectSelected) {
+        // This line is copied from AnnoationPane's implementation
+        if (!Platform.isFxApplicationThread()) {
+            return;
+        }
+        // Check if pathObjectSelected has been selected already
+        // Need to check this to avoid the selected row jumps after clicking
+        CedarAnnotation selected = this.annotationTable.getSelectionModel().getSelectedItem();
+        if (selected != null && selected.getPathObject().equals(pathObjectSelected))
+            return; // Nothing needs to be done
+        // Try to find the selected PathObject
+        this.isHandlingPathObjectSelection = true; // This flag is to control the table selection
+        this.annotationTable.getSelectionModel().clearSelection(); // Clear it first
+        this.annotationTable.getItems().stream()
+                .filter(anotation -> anotation.getPathObject().equals(pathObjectSelected))
+                .findFirst()
+                .ifPresent(annotation -> {
+                    this.annotationTable.getSelectionModel().select(annotation);
+                    // For some unknown reason, have to call the following method
+                    // in order to switch the mouse click selection to this table.
+                    // Otherwise, the user has to do double click to the current selected
+                    // row to get the selection. This is very weird!!!!
+                    annotationTable.getSelectionModel().getSelectedItem();
+                    this.annotationTable.scrollTo(annotation);
+                });
+        this.isHandlingPathObjectSelection = false;
+    }
+
 
     private void handlePathObjectChangeEvent(PathObjectHierarchyEvent event) {
         List<PathObject> changedObjects = event.getChangedObjects();
@@ -265,6 +308,8 @@ public class CedarExtensionView {
     }
 
     private void handleAnnotationTableSelection() {
+        if (isHandlingPathObjectSelection)
+            return;
         CedarAnnotation annotation = annotationTable.getSelectionModel().getSelectedItem();
         if (annotation == null)
             return;
@@ -272,6 +317,7 @@ public class CedarExtensionView {
         if (pathObject == null)
             return;
         QP.selectObjects(pathObject);
+        this.qupath.getViewer().centerROI(pathObject.getROI());
     }
 
     private void saveAnnoations() {
@@ -415,13 +461,20 @@ public class CedarExtensionView {
             this.currentImageFile = imageFile;
             boolean rtn = this.qupath.openImage(this.qupath.getViewer(), imageFile.getAbsolutePath());
             if (rtn) {
+                if (this.pathObjectHierarchy != null) {
+                    this.pathObjectHierarchy.removeListener(this.pathListener);
+                    this.pathObjectHierarchy.getSelectionModel().removePathObjectSelectionListener(this.pathObjectSelectionListener);
+                }
                 // Just in case it has been added
                 PathObjectHierarchy hierarchy = qupath.getViewer().getHierarchy();
                 if (hierarchy != null) {
                     // Just in case this has been added
-                    hierarchy.removeListener(this.pathListener);
+//                    hierarchy.removeListener(this.pathListener);
                     hierarchy.addListener(this.pathListener);
+                    hierarchy.getSelectionModel().addPathObjectSelectionListener(this.pathObjectSelectionListener);
                 }
+                // If it is null, still record it.
+                this.pathObjectHierarchy = hierarchy;
             }
             return rtn;
         }
