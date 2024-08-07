@@ -20,6 +20,7 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.stage.WindowEvent;
 import javafx.util.StringConverter;
+import javafx.util.converter.IntegerStringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
@@ -127,7 +128,7 @@ public class CedarExtensionView {
                     // Otherwise, the user has to do double click to the current selected
                     // row to get the selection. This is very weird!!!!
                     annotationTable.getSelectionModel().getSelectedItem();
-                    this.annotationTable.scrollTo(annotation);
+                    annotationTable.scrollTo(annotation);
                 });
         this.isHandlingPathObjectSelection = false;
     }
@@ -236,21 +237,21 @@ public class CedarExtensionView {
             updateAnnoationBtn.setDisable(false);
         });
 
-        TableColumn<CedarAnnotation, String> classCol = createTableColumn("class name", "className");
+        TableColumn<CedarAnnotation, String> classCol = createTableColumn("class name", "className", false);
         classCol.setOnEditCommit(event -> {
             event.getRowValue().setClassName(event.getNewValue());
             updateAnnoationBtn.setDisable(false);
         });
 
         TableColumn<CedarAnnotation, String> annotationStyleCol = createTableColumn("type", // Make the name simple
-                "annotationStyle");
+                "annotationStyle", true);
         annotationStyleCol.setOnEditCommit(event -> {
             event.getRowValue().setAnnotationStyle(event.getNewValue());
             updateAnnoationBtn.setDisable(false);
         });
 
         TableColumn<CedarAnnotation, String> metaDataSol = createTableColumn("metadata",
-                "metaData");
+                "metaData", false);
         metaDataSol.setOnEditCommit(event -> {
             event.getRowValue().setMetaData(event.getNewValue());
             updateAnnoationBtn.setDisable(false);
@@ -266,36 +267,58 @@ public class CedarExtensionView {
         });
     }
 
-    private TableColumn<CedarAnnotation, String> createTableColumn(String colName, String propName) {
+    private TableColumn<CedarAnnotation, String> createTableColumn(String colName, String propName, boolean enableOneClickEdit) {
         TableColumn<CedarAnnotation, String> classCol = new TableColumn<>(colName);
         classCol.setCellValueFactory(new PropertyValueFactory<>(propName));
-        // Have to call this. Otherwise, the table cannot be edited.
-        classCol.setCellFactory(TextFieldTableCell.forTableColumn());
-        classCol.setEditable(true);
+        // No need to call. The editable has been set at the table level
+//        classCol.setEditable(true);
+        if (enableOneClickEdit) {
+            classCol.setCellFactory(column -> {
+                TextFieldTableCell<CedarAnnotation, String> cell = new TextFieldTableCell<>();
+                cell.addEventFilter(MouseEvent.MOUSE_CLICKED, event -> {
+                    if (event.getClickCount() == 1 && !cell.isEmpty()) {
+                        this.annotationTable.edit(cell.getIndex(), column);
+                    }
+                });
+                // Ignore this for the time being. Not sure how to gain the focus for one cell.
+//                cell.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+//                    if (isNowFocused && !cell.isEmpty()) {
+//                        this.annotationTable.edit(cell.getIndex(), column);
+//                    }
+//                });
+                return cell;
+            });
+        }
+        else {
+            // Have to call this. Otherwise, the table cannot be edited.
+            classCol.setCellFactory(TextFieldTableCell.forTableColumn());
+        }
         return classCol;
     }
 
     private TableColumn<CedarAnnotation, Integer> createTableIdColumn(String colName, String propName) {
         TableColumn<CedarAnnotation, Integer> classCol = new TableColumn<>(colName);
         classCol.setCellValueFactory(new PropertyValueFactory<>(propName));
-        // Have to call this. Otherwise, the table cannot be edited.
-        // Create a StringConverter for Integer
-        StringConverter<Integer> integerStringConverter = new StringConverter<Integer>() {
-            @Override
-            public String toString(Integer object) {
-                return object != null ? object.toString() : "";
-            }
-            @Override
-            public Integer fromString(String string) {
-                try {
-                    return Integer.valueOf(string);
-                } catch (NumberFormatException e) {
-                    return null;
+        // Enable a single click to editing
+        // TODO: For the time being, only click to editing for this column.
+        // Need to discuss what other columns also need to enable this.
+        // Cannot enable for all. Otherwise, the selection is difficult.
+        classCol.setCellFactory(column -> {
+            TextFieldTableCell<CedarAnnotation, Integer> cell = new TextFieldTableCell<>();
+            cell.setConverter(new IntegerStringConverter());
+            cell.addEventFilter(MouseEvent.MOUSE_CLICKED, event -> {
+                if (event.getClickCount() == 1 && !cell.isEmpty()) {
+                    this.annotationTable.edit(cell.getIndex(), column);
                 }
-            }
-        };
-        classCol.setCellFactory(TextFieldTableCell.forTableColumn(integerStringConverter));
-        classCol.setEditable(true);
+            });
+            // Ignore this for the time being. Not sure how to gain the focus for one cell.
+//            cell.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
+//                if (isNowFocused && !cell.isEmpty()) {
+//                    this.annotationTable.edit(cell.getIndex(), column);
+//                }
+//            });
+            return cell;
+        });
         return classCol;
     }
 
