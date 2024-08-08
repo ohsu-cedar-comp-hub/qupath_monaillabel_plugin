@@ -14,6 +14,8 @@ import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.cell.ChoiceBoxTableCell;
+import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.MouseEvent;
@@ -243,8 +245,8 @@ public class CedarExtensionView {
             updateAnnoationBtn.setDisable(false);
         });
 
-        TableColumn<CedarAnnotation, String> annotationStyleCol = createTableColumn("type", // Make the name simple
-                "annotationStyle", true);
+        TableColumn<CedarAnnotation, AnnotationType> annotationStyleCol = createAnnotationTypeTableColumn("type", // Make the name simple
+                "annotationStyle");
         annotationStyleCol.setOnEditCommit(event -> {
             event.getRowValue().setAnnotationStyle(event.getNewValue());
             updateAnnoationBtn.setDisable(false);
@@ -293,6 +295,14 @@ public class CedarExtensionView {
             // Have to call this. Otherwise, the table cannot be edited.
             classCol.setCellFactory(TextFieldTableCell.forTableColumn());
         }
+        return classCol;
+    }
+
+    private TableColumn<CedarAnnotation, AnnotationType> createAnnotationTypeTableColumn(String colName, String propName) {
+        TableColumn<CedarAnnotation, AnnotationType> classCol = new TableColumn<>(colName);
+        classCol.setCellValueFactory(new PropertyValueFactory<>(propName));
+        // Enable single click to edit
+        classCol.setCellFactory(column -> new AnnotationTypeChoiceBox<>(AnnotationType.values()));
         return classCol;
     }
 
@@ -361,7 +371,7 @@ public class CedarExtensionView {
             // Force it to integer
             // TODO: This may need to discuss
             classArray.add(annotation.getClassId());
-            annotationArray.add(annotation.getAnnotationStyle());
+            annotationArray.add(annotation.getAnnotationStyle().toString());
             metaArray.add(annotation.getMetaData());
             // Create a path
             ArrayNode pointsArray = mapper.createArrayNode();
@@ -370,8 +380,10 @@ public class CedarExtensionView {
             List<Point2> points = roi.getAllPoints();
             for (Point2 point : points) {
                 ArrayNode pointArray = mapper.createArrayNode();
-                pointArray.add(point.getX());
+                // Switch the order so that it can be consistent with the Python output
+                // TODO: This should be changed!!!
                 pointArray.add(point.getY());
+                pointArray.add(point.getX());
                 pointsArray.add(pointArray);
             }
             pathArray.add(pointsArray);
