@@ -91,7 +91,10 @@ public class MoveToolEventHandler extends AbstractPathToolEventHandler {
 		// TODO: Consider whether Alt & the Shortcut key should both have the same effect
 		if (e.getClickCount() > 1 || e.isAltDown() || e.isShortcutDown()) {
 			boolean selected = false;
-			if (e.isAltDown() || e.isShortcutDown())
+			// Added by GW: If both keys (alt + command in Mac or alt + control in Windows), we do single selection
+			if (e.isAltDown() && e.isShortcutDown())
+				selected = ToolUtils.tryToSelect(viewer, xx, yy, e.getClickCount()-2, false);
+			else if (e.isAltDown() || e.isShortcutDown())
 				selected = ToolUtils.tryToSelect(viewer, xx, yy, e.getClickCount()-1, true, true);
 			else
 				selected = ToolUtils.tryToSelect(viewer, xx, yy, e.getClickCount()-2, false);
