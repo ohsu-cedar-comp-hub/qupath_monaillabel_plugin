@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import javafx.animation.KeyFrame;
+import javafx.animation.Timeline;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
@@ -13,14 +15,14 @@ import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
 import javafx.scene.control.*;
-import javafx.scene.control.Button;
-import javafx.scene.control.Label;
 import javafx.scene.control.cell.ChoiceBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
+import javafx.scene.paint.Color;
 import javafx.stage.WindowEvent;
+import javafx.util.Duration;
 import javafx.util.converter.IntegerStringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,6 +75,12 @@ public class CedarExtensionView {
     private boolean isHandlingPathObjectSelection;
     // Keep previous hierarchy so that we can remove listeners
     private PathObjectHierarchy pathObjectHierarchy;
+    // Used for animation
+    private Timeline timeline;
+    private Button startBtn;
+    private Button pauseBtn;
+    private Button stopBtn;
+    private CheckBox autoAssignCheckedBox;
 
     private static CedarExtensionView view;
 
@@ -207,7 +215,12 @@ public class CedarExtensionView {
         // Add image list and table into a splitpane
         SplitPane splitPane = new SplitPane();
         splitPane.setOrientation(Orientation.VERTICAL);
-        splitPane.getItems().addAll(imageList, annotationTable);
+
+        BorderPane tablePane = new BorderPane();
+        tablePane.setBottom(createAnimationPane());
+        tablePane.setCenter(annotationTable);
+
+        splitPane.getItems().addAll(imageList, tablePane);
         splitPane.setDividerPositions(0.5d);
         vbox.getChildren().add(splitPane);
         VBox.setVgrow(splitPane, Priority.ALWAYS);
@@ -224,6 +237,64 @@ public class CedarExtensionView {
         vbox.getChildren().add(buttonBox);
 
         ((BorderPane)contentPane).setCenter(vbox);
+    }
+
+    private HBox createAnimationPane() {
+        startBtn = new Button("play");
+        pauseBtn = new Button("pause");
+        stopBtn = new Button("stop");
+        autoAssignCheckedBox = new CheckBox("flag as checked");
+        HBox buttonBox = new HBox(10, startBtn, pauseBtn, stopBtn, autoAssignCheckedBox);
+        buttonBox.setAlignment(Pos.CENTER);
+        buttonBox.setPadding(new Insets(2));
+        // Add etched border to buttonBox
+        buttonBox.setBorder(new Border(new BorderStroke(
+                Color.LIGHTGRAY, BorderStrokeStyle.SOLID, new CornerRadii(2), new BorderWidths(1))
+        ));
+
+        startBtn.setOnAction(e -> {
+            setUpTimeline();
+            timeline.play();
+        });
+
+        return buttonBox;
+    }
+
+    private void setUpTimeline() {
+        // Animation to highlight each row for 1 second, starting from the current selection
+        timeline = new Timeline();
+
+        int startIndex = annotationTable.getSelectionModel().getSelectedIndex();
+        if (startIndex < 0 || startIndex >= annotationTable.getItems().size()) {
+            startIndex = 0; // Restart from 0
+        }
+        double duration = 0.5d; // per row
+        for (int i = startIndex; i < annotationTable.getItems().size(); i++) {
+            int rowIndex = i;
+            KeyFrame keyFrame = new KeyFrame(Duration.seconds((i - startIndex) * duration + duration), event -> {
+                // Clear the previous selection
+                annotationTable.getSelectionModel().clearSelection();
+
+                // Select the current row
+                annotationTable.getSelectionModel().select(rowIndex);
+
+                // Scroll to the current row to bring it into view
+                annotationTable.scrollTo(rowIndex);
+                if (autoAssignCheckedBox.isSelected()) {
+                    CedarAnnotation annotation = annotationTable.getItems().get(rowIndex);
+                    if (annotation.getAnnotationStyle() == AnnotationType.auto) {
+                        annotation.setAnnotationStyle(AnnotationType.auto_checked);
+                        annotationTable.refresh();
+                    }
+                }
+            });
+            timeline.getKeyFrames().add(keyFrame);
+        }
+
+        timeline.setCycleCount(1);
+
+        pauseBtn.setOnAction(e -> timeline.pause());
+        stopBtn.setOnAction(e -> timeline.stop());
     }
 
     private void initAnnotationTable() {
@@ -372,7 +443,14 @@ public class CedarExtensionView {
         if (imageFile == null)
             return; // Do nothing
         loadImage(imageFile);
-        loadAnnotation(imageFile);
+        // Wrap into here to avoid displaying issue when there is dialog shown (e.g. confirm the
+        // image type)
+        // Inside runLater doesn't work when no dialog is shown!
+//        Platform.runLater(() -> loadAnnotation(imageFile));
+        // Use thread works for both cases.
+        Thread t = new Thread(() -> loadAnnotation(imageFile));
+        t.start();
+//        loadAnnotation(imageFile);
     }
 
     private void handleAnnotationTableSelection() {
