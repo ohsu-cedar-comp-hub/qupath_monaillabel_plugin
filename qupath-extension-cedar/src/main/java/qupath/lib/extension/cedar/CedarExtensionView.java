@@ -11,6 +11,7 @@ import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
@@ -20,6 +21,7 @@ import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.stage.WindowEvent;
+import javafx.util.converter.IntegerStringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
@@ -332,7 +334,29 @@ public class CedarExtensionView {
         // Cannot enable for all. Otherwise, the selection is difficult.
         // Here we have to use a customized TextField for cell editing to enable commitEdit
         // when the mouse exits.
-        col.setCellFactory(column -> new AnnotationClassIdTableCell<>());
+//        col.setCellFactory(column -> new AnnotationClassIdTableCell<>());
+        col.setCellFactory(column -> {
+            TextFieldTableCell<CedarAnnotation, Integer> cell = new TextFieldTableCell<>(new IntegerStringConverter());
+            cell.setOnMouseClicked(event -> {
+                if (!cell.isEditing())
+                    cell.startEdit();
+            });
+            cell.setOnMouseExited(event -> {
+                if (cell.isEditing()) {
+                    // A way to hack into the children to get the private TextField.
+                    // By using this, we don't need a customized Cell.
+                    List<Node> children = cell.getChildrenUnmodifiable();
+                    if (children != null) {
+                        for (Node node : children) {
+                            if (node instanceof TextField) {
+                                cell.commitEdit(Integer.parseInt(((TextField) node).getText()));
+                            }
+                        }
+                    }
+                }
+            });
+            return cell;
+        });
         col.setOnEditCommit(event -> {
             CedarAnnotation annotation = event.getRowValue();
             annotation.setClassId(event.getNewValue());
