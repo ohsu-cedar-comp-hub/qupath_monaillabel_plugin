@@ -11,6 +11,7 @@ import qupath.lib.objects.classes.PathClass;
 import java.io.*;
 import java.sql.Array;
 import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * This class is used to handle the list of path classes used in the prostate cancer project.
@@ -19,6 +20,8 @@ public class CedarPathClassHandler {
     private static final Logger logger = LoggerFactory.getLogger(CedarPathClassHandler.class);
     private static CedarPathClassHandler handler;
     private Map<Integer, PathClass> id2cls = new HashMap<>();
+    // For reverse search
+    private Map<String, Integer> clsName2id = new HashMap<>();
 
     private CedarPathClassHandler() {
         // Load the class definition from a file
@@ -36,6 +39,8 @@ public class CedarPathClassHandler {
                 PathClass cls = PathClass.fromString(tokens[1]);
                 id2cls.put(Integer.parseInt(tokens[0]), cls);
             }
+            // reverse the map
+            id2cls.forEach((id, cls) -> clsName2id.put(cls.getName(), id));
         }
         catch (IOException ex) {
             logger.error("Error in CedarPathClassHandler(): " + ex.getMessage(), ex);
@@ -47,6 +52,19 @@ public class CedarPathClassHandler {
             handler = new CedarPathClassHandler();
         return handler;
     }
+
+    public List<String> getClassNames() {
+        List<String> classNames = id2cls.values().stream().map(cls -> cls.getName()).sorted().collect(Collectors.toUnmodifiableList());
+        return classNames;
+    }
+
+    public Integer getClassId(String className) {
+        Integer id = clsName2id.get(className);
+        if (id != null)
+            return id;
+        return -1; // As a flag to indicate nothing is there.
+    }
+
 
     public PathClass getPathClass(Integer id) {
         PathClass cls = id2cls.get(id);

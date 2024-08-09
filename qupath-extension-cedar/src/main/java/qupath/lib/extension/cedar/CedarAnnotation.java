@@ -9,8 +9,8 @@ import qupath.lib.objects.PathObject;
 import qupath.lib.objects.classes.PathClass;
 
 public class CedarAnnotation {
+    // Make sure classid and className are consistent
     private SimpleIntegerProperty classId;
-    private SimpleStringProperty className;
     private ObjectProperty<AnnotationType> annotationStyle;
     private SimpleStringProperty metaData;
     // Refer to QuPath PathAnnoation
@@ -23,16 +23,20 @@ public class CedarAnnotation {
     }
 
     public String getClassName() {
-        return this.className.get();
+        if (pathObject == null)
+            return "unknown";
+        return this.pathObject.getPathClass().getName();
     }
 
     public void setClassName(String name) {
-        if (this.className == null)
-            this.className = new SimpleStringProperty(name);
-        else
-            this.className.set(name);
-        if (pathObject != null)
-            pathObject.setPathClass(PathClass.fromString(name));
+        // Don't want to handle these two cases
+        if (pathObject == null || classId == null)
+            return;
+        pathObject.setPathClass(PathClass.fromString(name));
+        Integer id = CedarPathClassHandler.getHandler().getClassId(name);
+        if (this.classId.get() == id)
+            return;
+        this.classId.set(id); // Don't call set method to avoid a circular call.
     }
 
     public AnnotationType getAnnotationStyle() {
@@ -65,10 +69,14 @@ public class CedarAnnotation {
     }
 
     public void setClassId(Integer id) {
+        if (this.classId != null && this.classId.get() == id)
+            return;
         if (this.classId == null)
             this.classId = new SimpleIntegerProperty(id);
         else
             this.classId.set(id);
+        if (pathObject != null)
+            pathObject.setPathClass(CedarPathClassHandler.getHandler().getPathClass(id));
     }
 
     public PathObject getPathObject() {

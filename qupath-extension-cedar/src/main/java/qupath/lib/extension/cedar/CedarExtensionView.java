@@ -15,14 +15,11 @@ import javafx.scene.control.*;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.cell.ChoiceBoxTableCell;
-import javafx.scene.control.cell.ComboBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.stage.WindowEvent;
-import javafx.util.StringConverter;
-import javafx.util.converter.IntegerStringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
@@ -233,19 +230,11 @@ public class CedarExtensionView {
             handleAnnotationTableSelection();
         }));
 
-        TableColumn<CedarAnnotation, Integer> classIdCol = createTableIdColumn("class id", "classId");
-        classIdCol.setOnEditCommit(event -> {
-            event.getRowValue().setClassId(event.getNewValue());
-            updateAnnoationBtn.setDisable(false);
-        });
+        TableColumn<CedarAnnotation, Integer> classIdCol = createClassIdColumn("class id", "classId");
 
-        TableColumn<CedarAnnotation, String> classCol = createTableColumn("class name", "className", false);
-        classCol.setOnEditCommit(event -> {
-            event.getRowValue().setClassName(event.getNewValue());
-            updateAnnoationBtn.setDisable(false);
-        });
+        TableColumn<CedarAnnotation, String> classCol = createClassNameColumn("class name", "className");
 
-        TableColumn<CedarAnnotation, AnnotationType> annotationStyleCol = createAnnotationTypeTableColumn("type", // Make the name simple
+        TableColumn<CedarAnnotation, AnnotationType> annotationStyleCol = createAnnotationTypeColumn("type", // Make the name simple
                 "annotationStyle");
         annotationStyleCol.setOnEditCommit(event -> {
             event.getRowValue().setAnnotationStyle(event.getNewValue());
@@ -298,38 +287,60 @@ public class CedarExtensionView {
         return classCol;
     }
 
-    private TableColumn<CedarAnnotation, AnnotationType> createAnnotationTypeTableColumn(String colName, String propName) {
-        TableColumn<CedarAnnotation, AnnotationType> classCol = new TableColumn<>(colName);
-        classCol.setCellValueFactory(new PropertyValueFactory<>(propName));
+    private TableColumn<CedarAnnotation, AnnotationType> createAnnotationTypeColumn(String colName, String propName) {
+        TableColumn<CedarAnnotation, AnnotationType> col = new TableColumn<>(colName);
+        col.setCellValueFactory(new PropertyValueFactory<>(propName));
         // Enable single click to edit
-        classCol.setCellFactory(column -> new AnnotationTypeChoiceBox<>(AnnotationType.values()));
+        // Don't use the customized choicebox. Unless to copy the whole ChoiceBoxTableCell and then modify to improve.
+//        col.setCellFactory(column -> new AnnotationTypeChoiceBox<>(AnnotationType.values()));
+        col.setCellFactory(column -> {
+            ChoiceBoxTableCell<CedarAnnotation, AnnotationType> cell = new ChoiceBoxTableCell<>(AnnotationType.values());
+            cell.setOnMouseClicked(event ->{
+                if (!cell.isEditing())
+                    cell.startEdit();
+            });
+            return cell;
+        });
+        return col;
+    }
+
+    private TableColumn<CedarAnnotation, String> createClassNameColumn(String colName, String propName) {
+        TableColumn<CedarAnnotation, String> classCol = new TableColumn<>(colName);
+        classCol.setCellValueFactory(new PropertyValueFactory<>(propName));
+        classCol.setCellFactory(column -> {
+            ObservableList<String> classNames = FXCollections.observableArrayList(CedarPathClassHandler.getHandler().getClassNames());
+            ChoiceBoxTableCell<CedarAnnotation, String> cell = new ChoiceBoxTableCell<>(classNames);
+            // Enable single click to edit
+            cell.setOnMouseClicked(event ->{
+                if (!cell.isEditing())
+                    cell.startEdit();
+            });
+            return cell;
+        });
+        classCol.setOnEditCommit(event -> {
+            event.getRowValue().setClassName(event.getNewValue());
+            this.annotationTable.refresh(); // TODO: Look for a method to refresh a cell only
+            updateAnnoationBtn.setDisable(false);
+        });
         return classCol;
     }
 
-    private TableColumn<CedarAnnotation, Integer> createTableIdColumn(String colName, String propName) {
-        TableColumn<CedarAnnotation, Integer> classCol = new TableColumn<>(colName);
-        classCol.setCellValueFactory(new PropertyValueFactory<>(propName));
+    private TableColumn<CedarAnnotation, Integer> createClassIdColumn(String colName, String propName) {
+        TableColumn<CedarAnnotation, Integer> col = new TableColumn<>(colName);
+        col.setCellValueFactory(new PropertyValueFactory<>(propName));
         // Enable a single click to editing
-        // TODO: For the time being, only click to editing for this column.
-        // Need to discuss what other columns also need to enable this.
         // Cannot enable for all. Otherwise, the selection is difficult.
-        classCol.setCellFactory(column -> {
-            TextFieldTableCell<CedarAnnotation, Integer> cell = new TextFieldTableCell<>();
-            cell.setConverter(new IntegerStringConverter());
-            cell.addEventFilter(MouseEvent.MOUSE_CLICKED, event -> {
-                if (event.getClickCount() == 1 && !cell.isEmpty()) {
-                    this.annotationTable.edit(cell.getIndex(), column);
-                }
-            });
-            // Ignore this for the time being. Not sure how to gain the focus for one cell.
-//            cell.focusedProperty().addListener((obs, wasFocused, isNowFocused) -> {
-//                if (isNowFocused && !cell.isEmpty()) {
-//                    this.annotationTable.edit(cell.getIndex(), column);
-//                }
-//            });
-            return cell;
+        // Here we have to use a customized TextField for cell editing to enable commitEdit
+        // when the mouse exits.
+        col.setCellFactory(column -> new AnnotationClassIdTableCell<>());
+        col.setOnEditCommit(event -> {
+            CedarAnnotation annotation = event.getRowValue();
+            annotation.setClassId(event.getNewValue());
+            // This is not efficient. Use it for the time being to synchronize the whole row
+            annotationTable.refresh();
+            updateAnnoationBtn.setDisable(false);
         });
-        return classCol;
+        return col;
     }
 
     private void handleImageSelection() {
