@@ -8,6 +8,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
+import javafx.beans.value.ChangeListener;
+import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.geometry.Insets;
@@ -18,6 +20,7 @@ import javafx.scene.control.*;
 import javafx.scene.control.cell.ChoiceBoxTableCell;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.control.cell.TextFieldTableCell;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseEvent;
 import javafx.scene.layout.*;
 import javafx.scene.paint.Color;
@@ -81,6 +84,7 @@ public class CedarExtensionView {
     private Button pauseBtn;
     private Button stopBtn;
     private CheckBox autoAssignCheckedBox;
+    private TextField durationTF;
 
     private static CedarExtensionView view;
 
@@ -243,8 +247,23 @@ public class CedarExtensionView {
         startBtn = new Button("play");
         pauseBtn = new Button("pause");
         stopBtn = new Button("stop");
-        autoAssignCheckedBox = new CheckBox("flag as checked");
-        HBox buttonBox = new HBox(10, startBtn, pauseBtn, stopBtn, autoAssignCheckedBox);
+        autoAssignCheckedBox = new CheckBox("checked");
+        Label durationLabel = new Label("time(s):");
+        durationTF = new TextField(0.5 + "");
+        durationTF.setPrefColumnCount(3);
+        // Add a listener to ensure only double values are accepted
+        // TODO: Is there a better way to do this?
+        durationTF.textProperty().addListener(new ChangeListener<String>() {
+            @Override
+            public void changed(ObservableValue<? extends String> observable, String oldValue, String newValue) {
+                if (!newValue.matches("\\d*\\.?\\d*")) {
+                    durationTF.setText(oldValue);
+                }
+            }
+        });
+
+        HBox buttonBox = new HBox(6, startBtn, pauseBtn, stopBtn,
+                autoAssignCheckedBox, durationLabel, durationTF);
         buttonBox.setAlignment(Pos.CENTER);
         buttonBox.setPadding(new Insets(2));
         // Add etched border to buttonBox
@@ -252,8 +271,12 @@ public class CedarExtensionView {
                 Color.LIGHTGRAY, BorderStrokeStyle.SOLID, new CornerRadii(2), new BorderWidths(1))
         ));
 
+        timeline = new Timeline();
+
         startBtn.setOnAction(e -> {
             setUpTimeline();
+            // In case it has no focus
+            this.annotationTable.requestFocus();
             timeline.play();
         });
 
@@ -261,14 +284,18 @@ public class CedarExtensionView {
     }
 
     private void setUpTimeline() {
-        // Animation to highlight each row for 1 second, starting from the current selection
+        // Here we re-create timeline to ensure any new duration is used.
+        // Reuse the same timeline cannot work for some unknown reason!
+        if (timeline != null) {
+            timeline.getKeyFrames().removeAll();
+        }
         timeline = new Timeline();
 
         int startIndex = annotationTable.getSelectionModel().getSelectedIndex();
         if (startIndex < 0 || startIndex >= annotationTable.getItems().size()) {
             startIndex = 0; // Restart from 0
         }
-        double duration = 0.5d; // per row
+        double duration = Double.parseDouble(durationTF.getText().trim()); // per row
         for (int i = startIndex; i < annotationTable.getItems().size(); i++) {
             int rowIndex = i;
             KeyFrame keyFrame = new KeyFrame(Duration.seconds((i - startIndex) * duration + duration), event -> {
@@ -290,7 +317,6 @@ public class CedarExtensionView {
             });
             timeline.getKeyFrames().add(keyFrame);
         }
-
         timeline.setCycleCount(1);
 
         pauseBtn.setOnAction(e -> timeline.pause());
