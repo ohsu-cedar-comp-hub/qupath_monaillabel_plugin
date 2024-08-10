@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.ObjectWriter;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
 import javafx.application.Platform;
@@ -276,7 +277,15 @@ public class CedarExtensionView {
         startBtn.setOnAction(e -> {
             setUpTimeline();
             // In case it has no focus
-            this.annotationTable.requestFocus();
+            annotationTable.requestFocus();
+            annotationTable.setOnKeyPressed(keyEvent -> {
+                if (keyEvent.getCode() == KeyCode.SPACE) {
+                    if (timeline.getStatus() == Animation.Status.PAUSED)
+                        timeline.play();
+                    else if (timeline.getStatus() == Animation.Status.RUNNING)
+                        timeline.pause();
+                }
+            });
             timeline.play();
         });
 
@@ -287,7 +296,7 @@ public class CedarExtensionView {
         // Here we re-create timeline to ensure any new duration is used.
         // Reuse the same timeline cannot work for some unknown reason!
         if (timeline != null) {
-            timeline.getKeyFrames().removeAll();
+            timeline.getKeyFrames().clear();
         }
         timeline = new Timeline();
 
@@ -320,7 +329,11 @@ public class CedarExtensionView {
         timeline.setCycleCount(1);
 
         pauseBtn.setOnAction(e -> timeline.pause());
-        stopBtn.setOnAction(e -> timeline.stop());
+        stopBtn.setOnAction(e -> {
+            timeline.stop();
+            timeline.getKeyFrames().clear();
+            timeline = null; // Mark for gc
+        });
     }
 
     private void initAnnotationTable() {
