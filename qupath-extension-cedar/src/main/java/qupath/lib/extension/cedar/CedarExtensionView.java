@@ -273,6 +273,7 @@ public class CedarExtensionView {
         ));
 
         timeline = new Timeline();
+        timeline.setCycleCount(1);
 
         startBtn.setOnAction(e -> {
             setUpTimeline();
@@ -288,17 +289,20 @@ public class CedarExtensionView {
             });
             timeline.play();
         });
+        pauseBtn.setOnAction(e -> timeline.pause());
+        stopBtn.setOnAction(e -> {
+            timeline.stop();
+            timeline.getKeyFrames().clear();
+        });
+
 
         return buttonBox;
     }
 
     private void setUpTimeline() {
-        // Here we re-create timeline to ensure any new duration is used.
-        // Reuse the same timeline cannot work for some unknown reason!
-        if (timeline != null) {
+        if (timeline != null) { // Should not do it. Just in case...
             timeline.getKeyFrames().clear();
         }
-        timeline = new Timeline();
 
         int startIndex = annotationTable.getSelectionModel().getSelectedIndex();
         if (startIndex < 0 || startIndex >= annotationTable.getItems().size()) {
@@ -326,14 +330,6 @@ public class CedarExtensionView {
             });
             timeline.getKeyFrames().add(keyFrame);
         }
-        timeline.setCycleCount(1);
-
-        pauseBtn.setOnAction(e -> timeline.pause());
-        stopBtn.setOnAction(e -> {
-            timeline.stop();
-            timeline.getKeyFrames().clear();
-            timeline = null; // Mark for gc
-        });
     }
 
     private void initAnnotationTable() {
