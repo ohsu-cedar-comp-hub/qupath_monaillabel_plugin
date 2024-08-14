@@ -275,24 +275,42 @@ public class CedarExtensionView {
         timeline = new Timeline();
         timeline.setCycleCount(1);
 
+        // Use space key to control
+        annotationTable.setOnKeyPressed(keyEvent -> {
+            if (keyEvent.getCode() == KeyCode.SPACE) {
+                if (timeline.getStatus() == Animation.Status.PAUSED) {
+                    timeline.play();
+                    pauseBtn.setDisable(false);
+                }
+                else if (timeline.getStatus() == Animation.Status.RUNNING) {
+                    timeline.pause();
+                    pauseBtn.setDisable(true);
+                }
+            }
+        });
+
         startBtn.setOnAction(e -> {
+            if (timeline.getStatus() == Animation.Status.PAUSED) {
+                timeline.play();
+                pauseBtn.setDisable(false);
+                return;
+            }
             setUpTimeline();
             // In case it has no focus
             annotationTable.requestFocus();
-            annotationTable.setOnKeyPressed(keyEvent -> {
-                if (keyEvent.getCode() == KeyCode.SPACE) {
-                    if (timeline.getStatus() == Animation.Status.PAUSED)
-                        timeline.play();
-                    else if (timeline.getStatus() == Animation.Status.RUNNING)
-                        timeline.pause();
-                }
-            });
             timeline.play();
+            pauseBtn.setDisable(false);
+            stopBtn.setDisable(false);
         });
-        pauseBtn.setOnAction(e -> timeline.pause());
+        pauseBtn.setOnAction(e -> {
+            timeline.pause();
+            pauseBtn.setDisable(true);
+        });
         stopBtn.setOnAction(e -> {
             timeline.stop();
             timeline.getKeyFrames().clear();
+            stopBtn.setDisable(true);
+            pauseBtn.setDisable(true);
         });
 
 
