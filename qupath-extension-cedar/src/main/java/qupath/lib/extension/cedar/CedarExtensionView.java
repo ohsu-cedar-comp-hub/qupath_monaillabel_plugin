@@ -2,9 +2,6 @@ package qupath.lib.extension.cedar;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.ObjectWriter;
-import com.fasterxml.jackson.databind.node.ArrayNode;
-import com.fasterxml.jackson.databind.node.ObjectNode;
 import javafx.animation.Animation;
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -34,6 +31,7 @@ import qupath.fx.dialogs.Dialogs;
 import qupath.lib.geom.Point2;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.images.ImageData;
+import qupath.lib.io.PathIO;
 import qupath.lib.objects.PathObject;
 import qupath.lib.objects.PathObjects;
 import qupath.lib.objects.classes.PathClass;
@@ -102,7 +100,7 @@ public class CedarExtensionView {
 
     public void setQupath(QuPathGUI qupath) {
         this.qupath = qupath;
-        this.qupath.getStage().addEventHandler(WindowEvent.WINDOW_CLOSE_REQUEST, e -> saveAnnoations());
+        this.qupath.getStage().addEventHandler(WindowEvent.WINDOW_CLOSE_REQUEST, e -> saveAnnotations());
         pathListener = new PathObjectHierarchyListener() {
             @Override
             public void hierarchyChanged(PathObjectHierarchyEvent event) {
@@ -234,7 +232,7 @@ public class CedarExtensionView {
         buttonBox.setAlignment(Pos.CENTER);
         updateAnnoationBtn = new Button("Update Annotation");
         updateAnnoationBtn.setOnAction(e -> {
-            saveAnnoations();
+            saveAnnotations();
             updateAnnoationBtn.setDisable(true); // Disable it after saving
         });
         updateAnnoationBtn.setDisable(true);
@@ -519,61 +517,24 @@ public class CedarExtensionView {
         this.qupath.getViewer().centerROI(pathObject.getROI());
     }
 
-    private void saveAnnoations() {
+    private void saveAnnotations() {
         // Should not save if it is disabled
         if (this.updateAnnoationBtn.isDisabled() || this.currentImageFile == null)
             return; // Do nothing
         logger.info("Saving annotations for " + imageList.getSelectionModel().getSelectedItem());
-        ObjectMapper mapper = new ObjectMapper();
-        ObjectNode json = mapper.createObjectNode();
-        // Get the image name
-        String imageName = this.currentImageFile.getName();
-        json.put("image_name", imageName);
-        ArrayNode classArray = mapper.createArrayNode();
-        ArrayNode annotationArray = mapper.createArrayNode();
-        ArrayNode metaArray = mapper.createArrayNode();
-        ArrayNode pathArray = mapper.createArrayNode();
-        for (CedarAnnotation annotation : annotationTable.getItems()) {
-            // Force it to integer
-            // TODO: This may need to discuss
-            classArray.add(annotation.getClassId());
-            annotationArray.add(annotation.getAnnotationStyle().toString());
-            metaArray.add(annotation.getMetaData());
-            // Create a path
-            ArrayNode pointsArray = mapper.createArrayNode();
-            PathObject pathObject = annotation.getPathObject();
-            ROI roi = pathObject.getROI();
-            List<Point2> points = roi.getAllPoints();
-            for (Point2 point : points) {
-                ArrayNode pointArray = mapper.createArrayNode();
-                // Switch the order so that it can be consistent with the Python output
-                // TODO: This should be changed!!!
-                pointArray.add(point.getY());
-                pointArray.add(point.getX());
-                pointsArray.add(pointArray);
-            }
-            pathArray.add(pointsArray);
-        }
-        ObjectNode featureNode = mapper.createObjectNode();
-        featureNode.set("class", classArray);
-        featureNode.set("anno_style", annotationArray);
-        featureNode.set("metadata", metaArray);
-        json.set("features", featureNode);
-        json.set("annotation", pathArray);
-
-        ObjectWriter writer = mapper.writerWithDefaultPrettyPrinter();
-
+        // Save the data into geojson
+        File annotationFile = getAnnotationFileForImage(currentImageFile, true);
+        List<PathObject> pathObjets = annotationTable.getItems().stream().map(a -> a.getPathObject()).toList();
         try {
-            File annoationFile = getAnnotationFileForImage(currentImageFile);
-            backupAnnonations(annoationFile);
-            writer.writeValue(annoationFile, json);
+            backupAnnotations(annotationFile);
+            PathIO.exportObjectsAsGeoJSON(annotationFile, pathObjets);
         }
         catch(IOException e) {
             logger.error("Cannot save the annotation: " + e.getMessage(), e);
         }
     }
 
-    private void backupAnnonations(File annoationFile) {
+    private void backupAnnotations(File annoationFile) {
         if (!annoationFile.exists())
             return;
         // Change the file name to .json.bak
@@ -596,10 +557,19 @@ public class CedarExtensionView {
         return new File(folder, "annotations");
     }
 
-    private File getAnnotationFileForImage(File imageFile) {
+    private File getAnnotationFileForImage(File imageFile, boolean isForSave) {
         String imageFileName = imageFile.getName();
         int index = imageFileName.lastIndexOf(".");
-        String annotationFileName = imageFileName.substring(0, index) + ".json";
+        String imageFileRoot = imageFileName.substring(0, index);
+        // Check if there is a geojson file. If yes we will use it. Otherwise, use json.
+        String geojsonFileName = imageFileRoot + ".geojson";
+        File geoFile = new File(getAnnotationsFolder(currentFolder), geojsonFileName);
+        if (isForSave)
+            return geoFile;
+        if (geoFile.exists())
+            return geoFile;
+        // Now try json
+        String annotationFileName = imageFileRoot + ".json";
         File annotationFile = new File(getAnnotationsFolder(currentFolder), annotationFileName);
         return annotationFile;
     }
@@ -657,7 +627,7 @@ public class CedarExtensionView {
     private boolean loadImage(File imageFile) {
         try {
             // Save the annotation first in case there is something changed there.
-            saveAnnoations();
+            saveAnnotations();
             logger.info("Loading image: " + imageFile.getAbsolutePath());
             this.currentImageFile = imageFile;
             boolean rtn = this.qupath.openImage(this.qupath.getViewer(), imageFile.getAbsolutePath());
@@ -698,7 +668,7 @@ public class CedarExtensionView {
         if (!annotationFolder.exists())
             return false; // Should not occur
         // Load new annotations
-        File annotationFile = getAnnotationFileForImage(imageFile);
+        File annotationFile = getAnnotationFileForImage(imageFile, false);
         // This may be possible. Create a warning
         if (!annotationFile.exists()) {
             Dialogs.showWarningNotification("No Annotation File",
@@ -708,62 +678,22 @@ public class CedarExtensionView {
         try {
             logger.info("Loading annotation: " + annotationFile.getAbsolutePath());
 
-            // The following code is based on RunInference.java in Monai Label QuPath extension
-            ImageData<BufferedImage> imageData = this.qupath.getImageData();
-
-            // Create ObjectMapper instance
-            ObjectMapper objectMapper = new ObjectMapper();
-
-            // Read JSON file and parse it to JsonNode
-            JsonNode rootNode = objectMapper.readTree(annotationFile);
-
-            // Get image_name
-            String imageName = rootNode.path("image_name").asText();
-
-            // Get features
-            JsonNode featuresNode = rootNode.path("features");
-            JsonNode classNode = featuresNode.path("class");
-            JsonNode annoStyleNode = featuresNode.path("anno_style");
-            JsonNode metadataNode = featuresNode.path("metadata");
-
-            // Get annotations
-            JsonNode annotationsNode = rootNode.path("annotation");
-            ObservableList<CedarAnnotation> cedarAnnotations = FXCollections.observableArrayList();
-            for (int i = 0; i < annotationsNode.size(); i++) {
-                JsonNode annotation = annotationsNode.get(i);
-                List<Point2> pointsList = new ArrayList<>();
-                for (int j = 0; j < annotation.size(); j++) {
-                    JsonNode point = annotation.get(j);
-                    double x = point.get(1).asDouble();
-                    double y = point.get(0).asDouble();
-                    pointsList.add(new Point2(x, y));
-                }
-                ImagePlane plane = ImagePlane.getPlane(0, 0);
-                ROI polyROI = ROIs.createPolygonROI(pointsList, plane);
-                PathObject annotationObject = PathObjects.createAnnotationObject(polyROI);
-
-                String annotationStyle = annoStyleNode.get(i).textValue();
-                String metadata = metadataNode.get(i).textValue();
-                // This should use to String since the original value is a class
-                String annotationClassId = classNode.get(i).toString();
-                Integer classId = Integer.parseInt(annotationClassId);
-                CedarAnnotation cedarAnnotation = new CedarAnnotation();
-                cedarAnnotation.setAnnotationStyle(annotationStyle);
-                cedarAnnotation.setPathObject(annotationObject);
-                cedarAnnotation.setClassId(classId);
-                cedarAnnotation.setMetaData(metadata);
-                cedarAnnotations.add(cedarAnnotation);
-
-                // Assign class to annoationObject so that we can see different colors
-                PathClass pathCls = CedarPathClassHandler.getHandler().getPathClass(cedarAnnotation.getClassId());
-                annotationObject.setPathClass(pathCls);
-                cedarAnnotation.setClassName(pathCls.getName());
-                imageData.getHierarchy().addObject(annotationObject, false);
-
+            ObservableList<CedarAnnotation> cedarAnnotations = null;
+            if (annotationFile.getName().endsWith(".geojson")) {
+                cedarAnnotations = loadFromGeoJSON(annotationFile);
             }
+            else if (annotationFile.getName().endsWith(".json")) {
+                cedarAnnotations = loadFromJSON((annotationFile));
+            }
+            if (cedarAnnotations == null) {
+                logger.info("Cannot load annnotation file. The file must have extension name .geojson or .json.");
+                return false;
+            }
+            ImageData<BufferedImage> imageData = this.qupath.getImageData();
+            cedarAnnotations.forEach(a -> imageData.getHierarchy().addObject(a.getPathObject(), false));
             annotationTable.setItems(cedarAnnotations);
             updateAnnoationBtn.setDisable(true);
-            QP.fireHierarchyUpdate(imageData.getHierarchy());
+            QP.fireHierarchyUpdate(this.qupath.getImageData().getHierarchy());
             return true;
         }
         catch (IOException e) {
@@ -772,6 +702,69 @@ public class CedarExtensionView {
             logger.error("Cannot open annotation for: " + imageFile.getAbsolutePath(), e);
             return false;
         }
+    }
+
+    private ObservableList<CedarAnnotation> loadFromJSON(File annotationFile) throws IOException {
+        // The following code is based on RunInference.java in Monai Label QuPath extension
+        ImageData<BufferedImage> imageData = this.qupath.getImageData();
+
+        // Create ObjectMapper instance
+        ObjectMapper objectMapper = new ObjectMapper();
+
+        // Read JSON file and parse it to JsonNode
+        JsonNode rootNode = objectMapper.readTree(annotationFile);
+
+        // Get image_name
+        String imageName = rootNode.path("image_name").asText();
+
+        // Get features
+        JsonNode featuresNode = rootNode.path("features");
+        JsonNode classNode = featuresNode.path("class");
+        JsonNode annoStyleNode = featuresNode.path("anno_style");
+        JsonNode metadataNode = featuresNode.path("metadata");
+
+        // Get annotations
+        JsonNode annotationsNode = rootNode.path("annotation");
+        ObservableList<CedarAnnotation> cedarAnnotations = FXCollections.observableArrayList();
+        for (int i = 0; i < annotationsNode.size(); i++) {
+            JsonNode annotation = annotationsNode.get(i);
+            List<Point2> pointsList = new ArrayList<>();
+            for (int j = 0; j < annotation.size(); j++) {
+                JsonNode point = annotation.get(j);
+                double x = point.get(1).asDouble();
+                double y = point.get(0).asDouble();
+                pointsList.add(new Point2(x, y));
+            }
+            ImagePlane plane = ImagePlane.getPlane(0, 0);
+            ROI polyROI = ROIs.createPolygonROI(pointsList, plane);
+            PathObject annotationObject = PathObjects.createAnnotationObject(polyROI);
+
+            String annotationStyle = annoStyleNode.get(i).textValue();
+            String metadata = metadataNode.get(i).textValue();
+            // This should use to String since the original value is a class
+            String annotationClassId = classNode.get(i).toString();
+            Integer classId = Integer.parseInt(annotationClassId);
+            CedarAnnotation cedarAnnotation = new CedarAnnotation();
+            cedarAnnotation.setAnnotationStyle(annotationStyle);
+            cedarAnnotation.setPathObject(annotationObject);
+            cedarAnnotation.setClassId(classId);
+            cedarAnnotation.setMetaData(metadata);
+            cedarAnnotations.add(cedarAnnotation);
+
+            // Assign class to annotationObject so that we can see different colors
+            PathClass pathCls = CedarPathClassHandler.getHandler().getPathClass(cedarAnnotation.getClassId());
+            annotationObject.setPathClass(pathCls);
+            cedarAnnotation.setClassName(pathCls.getName());
+        }
+
+        return  cedarAnnotations;
+    }
+
+    private ObservableList<CedarAnnotation> loadFromGeoJSON(File annotationFile) throws  IOException {
+        List<PathObject> geoObjects = PathIO.readObjects(annotationFile);
+        // Convert it into a list of CedarAnnotation
+        ObservableList<CedarAnnotation> cedarAnnotations = FXCollections.observableArrayList(geoObjects.stream().map(p -> new CedarAnnotation(p)).toList());
+        return  cedarAnnotations;
     }
 
     /**
