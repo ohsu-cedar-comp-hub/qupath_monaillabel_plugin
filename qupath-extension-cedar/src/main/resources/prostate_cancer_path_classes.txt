@@ -1,19 +1,21 @@
-1	Prostatic adenocarcinoma, Gleason pattern 3
-2	Prostatic adenocarcinoma, Gleason pattern 4, cribriform glands
-3	Prostatic adenocarcinoma, Gleason pattern 4, poorly-formed glands
-4	Prostatic adenocarcinoma, Gleason pattern 4, fused glands
-5	Prostatic adenocarcinoma, Gleason pattern 4, glomeruloid glands
-6	Prostatic adenocarcinoma, Gleason pattern 5, single cells
-7	Prostatic adenocarcinoma, Gleason pattern 5, sheets
-8	Prostatic adenocarcinoma, Gleason pattern 5, cords
-9	Prostatic adenocarcinoma, Gleason pattern 5, solid nests
-10	Prostatic adenocarcinoma, Gleason pattern 5, necrosis
-11	Prostatic intraepithelial neoplasia
-12	Benign gland
-13	Glandular atrophy
-14	Nerve
-15	Vein / artery
-16	Chronic inflammation
-17	Background stroma (fibromuscular stroma)
-18	Not segmented correctly (e.g. multiple classes segmented together)
-19	Tissue processing artifact (not evaluable)
+calss_id    class_name  color
+0	unlabeled	220,190,255
+1	gleason 3	145,30,180
+2	gleason 4 cribriform glands	255,215,180
+3	gleason 4 poorly formed glands	128,128,128
+4	gleason 4 fused glands	250,190,212
+5	gleason 4 glomeruloid glands	230,25,75
+6	gleason 5 single cells	128,128,0
+7	gleason 5 sheets	60,180,75
+8	gleason 5 cords	170,255,195
+9	gleason 5 solid nests	70,240,240
+10	gleason 5 necrosis	0,128,128
+11	prostatic intraepithelial neoplasia	255,250,200
+12	benign gland	128,0,0
+13	glandular atrophy	170,110,40
+14	nerve	240,50,230
+15	vein/artery	0,130,200
+16	chronic inflammation	210,245,60
+17	background stroma	255,225,25
+18	not segmented correctly	0,0,128
+19	tissue processing artifact	245,130,48
