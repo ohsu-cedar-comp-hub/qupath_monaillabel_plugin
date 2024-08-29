@@ -13,6 +13,7 @@ import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.collections.transformation.FilteredList;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -65,6 +66,8 @@ public class CedarExtensionView {
     private File currentFolder;
     // List of image files
     private ListView<File> imageList;
+    // List of cached table annotations
+    private FilteredList<CedarAnnotation> filteredData;
     // The current image file shown
     private File currentImageFile;
     // Used to display annoations
@@ -223,6 +226,7 @@ public class CedarExtensionView {
 
         BorderPane tablePane = new BorderPane();
         tablePane.setBottom(createAnimationPane());
+        tablePane.setTop(createFilter());
         tablePane.setCenter(annotationTable);
 
         splitPane.getItems().addAll(imageList, tablePane);
@@ -315,6 +319,77 @@ public class CedarExtensionView {
 
 
         return buttonBox;
+    }
+
+    private HBox createFilter() {
+        // Create a ChoiceBox
+        ChoiceBox<String> choiceBox = new ChoiceBox<>();
+
+        // Add column names to the ChoiceBox
+        choiceBox.getItems().addAll("class id", "class name", "meta data", "type");
+
+        // Set a default value
+        choiceBox.setValue("class name");
+
+        // Create new text field for filter
+        TextField filterField = new TextField();
+
+        // Logic to filter based on selected column
+        Button filter = new Button("Filter");
+        filter.setOnAction(e -> {
+            String searchText = filterField.getText().trim();
+            String selectedColumnName = choiceBox.getSelectionModel().getSelectedItem();
+            setFilteredData(searchText, selectedColumnName);
+        });
+
+        // Logic to filter based on selected column
+        Button reset = new Button("Reset");
+        reset.setOnAction(e -> {
+            filteredData.setPredicate(p -> true);
+            filterField.setText("");
+            this.filterImageData();
+        });
+
+        // Set host HBox
+        HBox filters = new HBox(5, choiceBox, filterField, filter, reset);
+        filters.setPadding(new Insets(5));
+        return filters;
+    }
+
+    private void setFilteredData(String searchText, String selectedColumnName) {
+        switch (selectedColumnName) {
+            case "class name":
+                filteredData.setPredicate(s -> s.getClassName().toLowerCase().contains(searchText.toLowerCase()));
+                this.filterImageData();
+                break;
+            case "class id":
+                try {
+                    Integer searchId = Integer.valueOf(searchText);
+                    filteredData.setPredicate(s -> s.getClassId().equals(searchId));
+                    this.filterImageData();
+
+                } catch (NumberFormatException numberFormatException) {
+                    filteredData.setPredicate(s -> s.getClassName().toLowerCase().contains(searchText.toLowerCase()));
+                    this.filterImageData();
+                }
+                break;
+            case "meta data":
+                filteredData.setPredicate(s -> s.getMetaData().toLowerCase().contains(searchText.toLowerCase()));
+                this.filterImageData();
+                break;
+
+            case "type":
+                filteredData.setPredicate(s -> s.getAnnotationStyle().name().toLowerCase().contains(searchText.toLowerCase()));
+                this.filterImageData();
+                break;
+        }
+    }
+
+    private void filterImageData() {
+        Collection<PathObject> pathObjects = new ArrayList<>();
+        filteredData.forEach(o -> pathObjects.add(o.getPathObject()));
+        this.pathObjectHierarchy.clearAll();
+        this.pathObjectHierarchy.addObjects(pathObjects);
     }
 
     private void setUpTimeline() {
@@ -421,7 +496,7 @@ public class CedarExtensionView {
 //        col.setCellFactory(column -> new AnnotationTypeChoiceBox<>(AnnotationType.values()));
         col.setCellFactory(column -> {
             ChoiceBoxTableCell<CedarAnnotation, AnnotationType> cell = new ChoiceBoxTableCell<>(AnnotationType.values());
-            cell.setOnMouseClicked(event ->{
+            cell.setOnMouseClicked(event -> {
                 if (!cell.isEditing())
                     cell.startEdit();
             });
@@ -678,8 +753,7 @@ public class CedarExtensionView {
                 this.pathObjectHierarchy = hierarchy;
             }
             return rtn;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Image",
                     "Cannot open image: " + imageFile.getName());
             logger.error("Cannot open image: " + imageFile.getAbsolutePath(), e);
@@ -693,7 +767,7 @@ public class CedarExtensionView {
      * @param imageFile Note: the passed parameter is an image file, not its annotation file.
      * @return
      */
-    private  boolean loadAnnotation(File imageFile) {
+    private boolean loadAnnotation(File imageFile) {
         File annotationFolder = getAnnotationsFolder(this.currentFolder);
         if (!annotationFolder.exists())
             return false; // Should not occur
@@ -761,12 +835,12 @@ public class CedarExtensionView {
                 imageData.getHierarchy().addObject(annotationObject, false);
 
             }
-            annotationTable.setItems(cedarAnnotations);
+            filteredData = new FilteredList<>(FXCollections.observableList(cedarAnnotations));
+            annotationTable.setItems(filteredData);
             updateAnnoationBtn.setDisable(true);
             QP.fireHierarchyUpdate(imageData.getHierarchy());
             return true;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Annotation",
                     "Cannot open annotation for: " + imageFile.getName());
             logger.error("Cannot open annotation for: " + imageFile.getAbsolutePath(), e);
