@@ -5,6 +5,7 @@ import javafx.scene.control.ButtonType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
+import qupath.lib.common.ColorTools;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.objects.classes.PathClass;
 
@@ -31,12 +32,17 @@ public class CedarPathClassHandler {
                 return;
             }
             BufferedReader br = new BufferedReader(new InputStreamReader(input));
-            String line = null;
+            // Bypasss the first line, which is head
+            String line = br.readLine();
             while ((line = br.readLine()) != null) {
                 if (line.trim().length() == 0)
                     continue;
                 String[] tokens = line.split("\t");
-                PathClass cls = PathClass.fromString(tokens[1]);
+                String[] colorText = tokens[2].split(",");
+                Integer color = ColorTools.packRGB(Integer.parseInt(colorText[0]),
+                        Integer.parseInt(colorText[1]),
+                        Integer.parseInt(colorText[2]));
+                PathClass cls = PathClass.fromString(tokens[1], color);
                 id2cls.put(Integer.parseInt(tokens[0]), cls);
             }
             // reverse the map

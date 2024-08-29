@@ -1,25 +1,35 @@
 package qupath.lib.extension.cedar;
 
-import javafx.beans.property.ObjectProperty;
-import javafx.beans.property.SimpleIntegerProperty;
-import javafx.beans.property.SimpleObjectProperty;
-import javafx.beans.property.SimpleStringProperty;
 import qupath.lib.objects.PathAnnotationObject;
 import qupath.lib.objects.PathObject;
 import qupath.lib.objects.classes.PathClass;
 
+/**
+ * A wrapper of PathObject so that it can be easily displayed in a JavaFX table view.
+ * TODO: We may use PathObject in the future directly.
+ */
 public class CedarAnnotation {
-    // Make sure classid and className are consistent
-    private SimpleIntegerProperty classId;
-    private ObjectProperty<AnnotationType> annotationStyle;
-    private SimpleStringProperty metaData;
-    // Refer to QuPath PathAnnoation
+    // Keys in meta map for PathObject
+    private final String ANNOTATION_TYPE_KEY = "anno_style";
+    private final String CLASS_ID_KEY = "class_id";
+    private final String META_KEY = "ANNOTATION_DESCRIPTION";
+    private final String NEW_OBJECT_DESC = "manually created";
+    // Refer to QuPath PathAnnotation
     private PathObject pathObject;
 
     public CedarAnnotation() {}
 
+    public CedarAnnotation(PathObject pathObject) {
+        this.pathObject = pathObject;
+    }
+
     public Integer getClassId() {
-        return classId.get();
+        if (pathObject == null || pathObject.getMetadata() == null)
+            return -1;
+        String id = this.pathObject.getMetadata().get(CLASS_ID_KEY);
+        if (id == null)
+            return -1;
+        return Integer.parseInt(id);
     }
 
     public String getClassName() {
@@ -28,55 +38,68 @@ public class CedarAnnotation {
         return this.pathObject.getPathClass().getName();
     }
 
+    private PathObject initPathObject() {
+        PathAnnotationObject pathObject = new PathAnnotationObject();
+        pathObject.setDescription(NEW_OBJECT_DESC);
+        return pathObject;
+    }
+
     public void setClassName(String name) {
         // Don't want to handle these two cases
-        if (pathObject == null || classId == null)
+        if (pathObject == null) {
+            pathObject = initPathObject();
+        }
+        if (pathObject.getPathClass().getName().equals(name))
             return;
         pathObject.setPathClass(PathClass.fromString(name));
         Integer id = CedarPathClassHandler.getHandler().getClassId(name);
-        if (this.classId.get() == id)
-            return;
-        this.classId.set(id); // Don't call set method to avoid a circular call.
+        setClassId(id);
     }
 
     public AnnotationType getAnnotationStyle() {
-        return annotationStyle.get();
+        if (pathObject == null || pathObject.getMetadata() == null)
+            return AnnotationType.auto; // Use this as the default
+        String style = pathObject.getMetadata().get(ANNOTATION_TYPE_KEY);
+        if (style == null)
+            return AnnotationType.auto;
+        return AnnotationType.valueOf(style);
     }
 
     public void setAnnotationStyle(String annotationStyle) {
-        if (this.annotationStyle == null)
-            this.annotationStyle = new SimpleObjectProperty<>(AnnotationType.valueOf(annotationStyle));
-        else
-            this.annotationStyle.set(AnnotationType.valueOf(annotationStyle));
+        if (pathObject == null) {
+            pathObject = new PathAnnotationObject();
+            // Call this to create a meta map so that we can add
+            ((PathAnnotationObject)pathObject).setDescription(NEW_OBJECT_DESC);
+        }
+        pathObject.getMetadata().put(ANNOTATION_TYPE_KEY, annotationStyle);
     }
 
     public void setAnnotationStyle(AnnotationType annotationStyle) {
-        if (this.annotationStyle == null)
-            this.annotationStyle = new SimpleObjectProperty<>(annotationStyle);
-        else
-            this.annotationStyle.set(annotationStyle);
+        this.setAnnotationStyle(annotationStyle.toString());
     }
 
     public String getMetaData() {
-        return metaData.get();
+        if (pathObject != null && pathObject.getMetadata() != null)
+            return pathObject.getMetadata().get(META_KEY);
+        return null;
     }
 
     public void setMetaData(String metaData) {
-        if (this.metaData == null)
-            this.metaData = new SimpleStringProperty(metaData);
-        else
-            this.metaData.set(metaData);
+        if (pathObject == null) {
+            pathObject = initPathObject();
+        }
+        pathObject.getMetadata().put(META_KEY, metaData);
     }
 
     public void setClassId(Integer id) {
-        if (this.classId != null && this.classId.get() == id)
+        if (pathObject == null) {
+            pathObject = initPathObject();
+        }
+        String oldId = pathObject.getMetadata().get(CLASS_ID_KEY);
+        if (oldId != null && oldId.equals(id.toString()))
             return;
-        if (this.classId == null)
-            this.classId = new SimpleIntegerProperty(id);
-        else
-            this.classId.set(id);
-        if (pathObject != null)
-            pathObject.setPathClass(CedarPathClassHandler.getHandler().getPathClass(id));
+        pathObject.getMetadata().put(CLASS_ID_KEY, id + "");
+        pathObject.setPathClass(CedarPathClassHandler.getHandler().getPathClass(id));
     }
 
     public PathObject getPathObject() {

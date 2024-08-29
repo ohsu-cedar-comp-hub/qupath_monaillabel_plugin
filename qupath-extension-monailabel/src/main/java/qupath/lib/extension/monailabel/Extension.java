@@ -126,21 +126,23 @@ public class Extension implements QuPathExtension {
 				openblas.blas_set_num_threads(1);
 			}
 
-			logger.info("Installing MONAILabel Toolbar actions");
-			Platform.runLater(() -> {
-				var segmentationTool = PathTools.createTool(new SegmentationTool(), "Segmentation",
-						Extension.createIconNode('\ue916', Color.DARKCYAN, true));
-				qupath.getToolManager().installTool(segmentationTool, new KeyCodeCombination(KeyCode.S, KeyCombination.ALT_ANY));
-				qupath.getToolManager().getToolAction(segmentationTool)
-						.setLongText("Click to annotate using MONAILabel Segmentation models.");
-
-				var interactorTool = PathTools.createTool(new InteractorTool(), "Interactor",
-						Extension.createIconNode('\uf192', Color.DARKCYAN, false));
-				qupath.getToolManager().installTool(interactorTool, new KeyCodeCombination(KeyCode.I, KeyCombination.ALT_ANY));
-				qupath.getToolManager().getToolAction(interactorTool)
-						.setLongText("Click to annotate using MONAILabel Interaction models.");
-
-			});
+			// Note: The threading issue occurs when the welcome splash screen is turned off. However, the function is fine.
+//TODO: There is a threading issue here to install these tools. It works. Turn it off for the time being.
+//			logger.info("Installing MONAILabel Toolbar actions");
+//			Platform.runLater(() -> {
+//				var segmentationTool = PathTools.createTool(new SegmentationTool(), "Segmentation",
+//						Extension.createIconNode('\ue916', Color.DARKCYAN, true));
+//				qupath.getToolManager().installTool(segmentationTool, new KeyCodeCombination(KeyCode.S, KeyCombination.ALT_ANY));
+//				qupath.getToolManager().getToolAction(segmentationTool)
+//						.setLongText("Click to annotate using MONAILabel Segmentation models.");
+//
+//				var interactorTool = PathTools.createTool(new InteractorTool(), "Interactor",
+//						Extension.createIconNode('\uf192', Color.DARKCYAN, false));
+//				qupath.getToolManager().installTool(interactorTool, new KeyCodeCombination(KeyCode.I, KeyCombination.ALT_ANY));
+//				qupath.getToolManager().getToolAction(interactorTool)
+//						.setLongText("Click to annotate using MONAILabel Interaction models.");
+//
+//			});
 		});
 		t.start();
 	}
