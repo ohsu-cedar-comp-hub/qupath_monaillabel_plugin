@@ -1,4 +1,4 @@
-calss_id    class_name  color
+class_id	class_name	color
 0	unlabeled	220,190,255
 1	gleason 3	145,30,180
 2	gleason 4 cribriform glands	255,215,180
