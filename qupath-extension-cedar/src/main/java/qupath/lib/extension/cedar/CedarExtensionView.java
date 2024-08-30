@@ -754,7 +754,7 @@ public class CedarExtensionView {
 
             ObservableList<CedarAnnotation> cedarAnnotations = null;
             if (annotationFile.getName().endsWith(".geojson")) {
-                cedarAnnotations = loadFromGeoJSON(annotationFile);
+                //cedarAnnotations = loadFromGeoJSON(annotationFile);
             }
             else if (annotationFile.getName().endsWith(".json")) {
                 cedarAnnotations = loadFromJSON((annotationFile));
@@ -765,7 +765,10 @@ public class CedarExtensionView {
             }
             ImageData<BufferedImage> imageData = this.qupath.getImageData();
             cedarAnnotations.forEach(a -> imageData.getHierarchy().addObject(a.getPathObject(), false));
-            annotationTable.setItems(cedarAnnotations);
+
+            filteredData = new FilteredList<>(FXCollections.observableList(cedarAnnotations));
+
+            annotationTable.setItems(filteredData);
             updateAnnoationBtn.setDisable(true);
             QP.fireHierarchyUpdate(this.qupath.getImageData().getHierarchy());
             return true;
@@ -834,31 +837,32 @@ public class CedarExtensionView {
         return  cedarAnnotations;
     }
 
-    private ObservableList<CedarAnnotation> loadFromGeoJSON(File annotationFile) throws  IOException {
-        List<PathObject> geoObjects = PathIO.readObjects(annotationFile);
-        // Convert it into a list of CedarAnnotation
-        ObservableList<CedarAnnotation> cedarAnnotations = FXCollections.observableArrayList(geoObjects.stream().map(p -> new CedarAnnotation(p)).toList());
-        return  cedarAnnotations;
-                // Assign class to annoationObject so that we can see different colors
-                PathClass pathCls = CedarPathClassHandler.getHandler().getPathClass(cedarAnnotation.getClassId());
-                annotationObject.setPathClass(pathCls);
-                cedarAnnotation.setClassName(pathCls.getName());
-                imageData.getHierarchy().addObject(annotationObject, false);
-
-            }
-            filteredData = new FilteredList<>(FXCollections.observableList(cedarAnnotations));
-            annotationTable.setItems(filteredData);
-            updateAnnoationBtn.setDisable(true);
-            QP.fireHierarchyUpdate(imageData.getHierarchy());
-            return true;
-        } catch (IOException e) {
-            Dialogs.showErrorMessage("Error in Opening Annotation",
-                    "Cannot open annotation for: " + imageFile.getName());
-            logger.error("Cannot open annotation for: " + imageFile.getAbsolutePath(), e);
-            return false;
-        }
-    }
-
+//    private ObservableList<CedarAnnotation> loadFromGeoJSON(File annotationFile) throws  IOException {
+//        List<PathObject> geoObjects = PathIO.readObjects(annotationFile);
+//        // Convert it into a list of CedarAnnotation
+//        ObservableList<CedarAnnotation> cedarAnnotations = FXCollections.observableArrayList(geoObjects.stream().map(p -> new CedarAnnotation(p)).toList());
+//        return  cedarAnnotations;
+//                // Assign class to annoationObject so that we can see different colors
+//                PathClass pathCls = CedarPathClassHandler.getHandler().getPathClass(cedarAnnotation.getClassId());
+//                annotationObject.setPathClass(pathCls);
+//                cedarAnnotation.setClassName(pathCls.getName());
+//                imageData.getHierarchy().addObject(annotationObject, false);
+//
+//            }
+//            filteredData = new FilteredList<>(FXCollections.observableList(cedarAnnotations));
+//            annotationTable.setItems(filteredData);
+//            updateAnnoationBtn.setDisable(true);
+//            QP.fireHierarchyUpdate(imageData.getHierarchy());
+//            return true;
+//        } catch (IOException e) {
+//            Dialogs.showErrorMessage("Error in Opening Annotation",
+//                    "Cannot open annotation for: " + imageFile.getName());
+//            logger.error("Cannot open annotation for: " + imageFile.getAbsolutePath(), e);
+//            return false;
+//        }
+//    }
+//        }|
+//
     /**
      * Provide a tabbed view so that this view can be added into a TabPane.
      * @return
