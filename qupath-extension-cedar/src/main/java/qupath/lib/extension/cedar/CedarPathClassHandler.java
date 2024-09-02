@@ -60,7 +60,12 @@ public class CedarPathClassHandler {
     }
 
     public List<String> getClassNames() {
-        List<String> classNames = id2cls.values().stream().map(cls -> cls.getName()).sorted().collect(Collectors.toUnmodifiableList());
+        // Make the order as the original one
+        // Since we are using HashMap and cannot guarantee the order of the keys
+        // therefore, we order the names explicitly using their ids.
+        List<String> classNames = id2cls.values().stream().map(cls -> cls.getName())
+                .sorted((c1, c2) -> clsName2id.get(c1).compareTo(clsName2id.get(c2)))
+                .collect(Collectors.toUnmodifiableList());
         return classNames;
     }
 
