@@ -708,6 +708,8 @@ public class CedarExtensionView {
             return false;
         }
         try {
+            // If there is annotation, the infer button should be disabled
+            inferAnnotationBtn.setDisable(true);
             return parseAnnotationFile(annotationFile);
         }
         catch (IOException e) {

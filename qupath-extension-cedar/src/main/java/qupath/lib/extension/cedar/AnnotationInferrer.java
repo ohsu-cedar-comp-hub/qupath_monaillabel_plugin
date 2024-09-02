@@ -7,6 +7,9 @@ import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ProgressIndicator;
 import javafx.scene.layout.StackPane;
 import javafx.scene.paint.Color;
+import javafx.stage.Modality;
+import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
@@ -42,17 +45,30 @@ public class AnnotationInferrer {
         Scene previousScene = extension.getQupath().getStage().getScene();
         Scene scene = new Scene(root, previousScene.getWidth(), previousScene.getHeight());
         scene.setFill(Color.TRANSPARENT);
-        extension.getQupath().getStage().setScene(scene);
-        extension.getQupath().getStage().show();
+
+        // Create the transparent stage to show the progress
+        Stage dialogStage = new Stage();
+        dialogStage.initStyle(StageStyle.TRANSPARENT);
+        dialogStage.initModality(Modality.APPLICATION_MODAL); // Block interaction with other windows
+        dialogStage.initOwner(extension.getQupath().getStage()); // Set the owner for modality
+        dialogStage.setScene(scene);
+
+        // The location of dialogState may be offset a little bit. Don't adjust anything
+        // here to avoid even weirder behavior!!!
+//        Stage primaryStage = extension.getQupath().getStage();
+//        dialogStage.setX(primaryStage.getX());
+//        dialogStage.setY(primaryStage.getY());
+
+        dialogStage.show();
 
         Task<Void> inferTask = createInferTask(imageFile, annotationFolder, extension);
         // Handle task completion: need to call here as the main JavaFX thread
         inferTask.setOnSucceeded(event -> {
-            extension.getQupath().getStage().setScene(previousScene);
+            dialogStage.close();
         });
 
         inferTask.setOnFailed(event -> {
-            extension.getQupath().getStage().setScene(previousScene);
+            dialogStage.close();
         });
 
         new Thread(inferTask).start();
