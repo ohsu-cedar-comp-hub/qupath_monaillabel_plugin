@@ -49,6 +49,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.*;
 
 /**
@@ -120,7 +121,7 @@ public class CedarExtensionView {
     }
 
     private void handlePathObjectSelectionEvent(PathObject pathObjectSelected) {
-        // This line is copied from AnnoationPane's implementation
+        // This line is copied from AnnotationPane's implementation
         if (!Platform.isFxApplicationThread()) {
             return;
         }
@@ -133,7 +134,7 @@ public class CedarExtensionView {
         this.isHandlingPathObjectSelection = true; // This flag is to control the table selection
         this.annotationTable.getSelectionModel().clearSelection(); // Clear it first
         this.annotationTable.getItems().stream()
-                .filter(anotation -> anotation.getPathObject().equals(pathObjectSelected))
+                .filter(annotation -> annotation.getPathObject().equals(pathObjectSelected))
                 .findFirst()
                 .ifPresent(annotation -> {
                     this.annotationTable.getSelectionModel().select(annotation);
@@ -183,6 +184,10 @@ public class CedarExtensionView {
             }
             if (toBeAdded.size() > 0)
                 annotationTable.getItems().addAll(toBeAdded);
+        }
+        else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.CHANGE_CLASSIFICATION) {
+            // This may not be that efficient. But probably the easiest!
+            annotationTable.refresh();
         }
         updateAnnotationBtn.setDisable(false);
     }
@@ -378,6 +383,10 @@ public class CedarExtensionView {
         annotationTable.getSelectionModel().selectedItemProperty().addListener((observable -> {
             handleAnnotationTableSelection();
         }));
+        // With the current table setting, one clicking to editing, multiple selection is buggy and should not
+        // be enabled without much more tests!!!
+        // However, multiple selection in the image view works.
+//        annotationTable.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
 
         TableColumn<CedarAnnotation, Integer> classIdCol = createClassIdColumn("class id", "classId");
 

@@ -88,10 +88,10 @@ public class CedarPathClassHandler {
         ObservableList<PathClass> availablePathClasses = qupath.getAvailablePathClasses();
 
         // The following code is based on promptToPopulateFromImage() in PathClassPane
-        List<PathClass> newClasses = new ArrayList<>(id2cls.values());
-        Collections.sort(newClasses);
+        List<PathClass> newClasses = new ArrayList<>(); // We'd like to use a modifiable list
+        id2cls.keySet().stream().sorted().map(id ->id2cls.get(id)).forEach(c -> newClasses.add(c));
 
-        newClasses.add(PathClass.StandardPathClasses.IGNORE);
+//        newClasses.add(PathClass.StandardPathClasses.IGNORE);
 
         List<PathClass> currentClasses = new ArrayList<>(availablePathClasses);
         currentClasses.remove(null);
@@ -100,6 +100,7 @@ public class CedarPathClassHandler {
         }
 
         // Put null as the first
+        // Need to add null to avoid Invalid PathClass list modification
         newClasses.add(0, PathClass.NULL_CLASS);
         availablePathClasses.setAll(newClasses);
     }
