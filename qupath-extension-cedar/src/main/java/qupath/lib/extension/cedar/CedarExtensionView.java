@@ -744,10 +744,33 @@ public class CedarExtensionView {
         }
         ImageData<BufferedImage> imageData = this.qupath.getImageData();
         cedarAnnotations.forEach(a -> imageData.getHierarchy().addObject(a.getPathObject(), false));
+        sortAnnotations(cedarAnnotations);
         annotationTable.setItems(cedarAnnotations);
         updateAnnotationBtn.setDisable(true);
         QP.fireHierarchyUpdate(this.qupath.getImageData().getHierarchy());
         return true;
+    }
+
+    /**
+     * Sort the list of CedarAnnoations based on ROI's centroid starting from top left corner to the bottom right corner.
+     * @param annoations
+     */
+    private void sortAnnotations(List<CedarAnnotation> annotations) {
+        annotations.sort((a1, a2) -> {
+            // Using bounds, instead of centroid, gives a better intuition
+            double a1_x = a1.getPathObject().getROI().getBoundsX();
+            double a1_y = a1.getPathObject().getROI().getBoundsY();
+            double a2_x = a2.getPathObject().getROI().getBoundsX();
+            double a2_y = a2.getPathObject().getROI().getBoundsY();
+            // Compare y first: We want to make sure a2, which has higher value to be listed later, therefore
+            // the delta should be like this.
+            double delta_y = a1_y - a2_y;
+            if (delta_y > 0) return 1;
+            if (delta_y < 0) return -1;
+            double delta_x = a1_x - a2_x;
+            if (delta_x > 0) return 1;
+            return -1;
+        });
     }
 
     private ObservableList<CedarAnnotation> loadFromJSON(File annotationFile) throws IOException {
