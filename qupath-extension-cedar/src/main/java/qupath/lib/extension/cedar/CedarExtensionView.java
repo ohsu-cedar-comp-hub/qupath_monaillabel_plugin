@@ -70,6 +70,8 @@ public class CedarExtensionView {
     private File currentImageFile;
     // Used to display annoations
     private TableView<CedarAnnotation> annotationTable;
+    // Track the cedarAnnotations as they are added/deleted
+    private ObservableList<CedarAnnotation> cedarAnnotations;
     private Button updateAnnoationBtn;
     private QuPathGUI qupath;
     // Track the PathObject change
@@ -155,35 +157,49 @@ public class CedarExtensionView {
             return;
         if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.REMOVED) {
             List<CedarAnnotation> toBeRemoved = new ArrayList<>();
-            for (CedarAnnotation annotation : annotationTable.getItems()) {
+            for (CedarAnnotation annotation : cedarAnnotations) {
                 if (changedObjects.contains(annotation.getPathObject())) {
                     toBeRemoved.add(annotation);
                 }
             }
-            annotationTable.getItems().removeAll(toBeRemoved);
+            @SuppressWarnings("unchecked")
+            ObservableList<CedarAnnotation> source = (ObservableList<CedarAnnotation>) filteredData.getSource();
+            source.removeAll(toBeRemoved);
         }
         else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.ADDED) {
             List<CedarAnnotation> toBeAdded = new ArrayList<>();
-            for (PathObject pathObject : changedObjects) {
-                // For some reason, the same PathObject is passed as ADDED multiple time
-                boolean existed = false;
-                for (CedarAnnotation annotation : annotationTable.getItems()) {
-                    if (annotation.getPathObject() == pathObject) {
-                        existed = true;
-                        break;
+            if(!(filteredData == null)) {
+                for (PathObject pathObject : changedObjects) {
+                    // For some reason, the same PathObject is passed as ADDED multiple time
+                    boolean existed = false;
+                    for (CedarAnnotation annotation : filteredData) {
+                        if (annotation.getPathObject() == pathObject) {
+                            existed = true;
+                            break;
+                        }
                     }
+                    if (existed)
+                        continue;
+                    CedarAnnotation cedarAnnotation = new CedarAnnotation();
+                    cedarAnnotation.setPathObject(pathObject);
+                    cedarAnnotation.setAnnotationStyle("manual");
+                    cedarAnnotation.setClassId(-1); // Use -1 as a flag for not labeled
+                    cedarAnnotation.setMetaData("Created in QuPath");
+                    toBeAdded.add(cedarAnnotation);
                 }
-                if (existed)
-                    continue;
-                CedarAnnotation cedarAnnotation = new CedarAnnotation();
-                cedarAnnotation.setPathObject(pathObject);
-                cedarAnnotation.setAnnotationStyle("manual");
-                cedarAnnotation.setClassId(-1); // Use -1 as a flag for not labeled
-                cedarAnnotation.setMetaData("Created in QuPath");
-                toBeAdded.add(cedarAnnotation);
             }
-            if (toBeAdded.size() > 0)
-                annotationTable.getItems().addAll(toBeAdded);
+            if (!toBeAdded.isEmpty()) {
+                if(cedarAnnotations == null){
+                    cedarAnnotations = FXCollections.observableList(toBeAdded);
+                }
+                else {
+                    cedarAnnotations.addAll(toBeAdded);
+                }
+
+                @SuppressWarnings("unchecked")
+                ObservableList<CedarAnnotation> source = (ObservableList<CedarAnnotation>) filteredData.getSource();
+                source.addAll(toBeAdded);
+            }
         }
         updateAnnoationBtn.setDisable(false);
     }
@@ -599,7 +615,7 @@ public class CedarExtensionView {
         logger.info("Saving annotations for " + imageList.getSelectionModel().getSelectedItem());
         // Save the data into geojson
         File annotationFile = getAnnotationFileForImage(currentImageFile, true);
-        List<PathObject> pathObjets = annotationTable.getItems().stream().map(a -> a.getPathObject()).toList();
+        List<PathObject> pathObjets = filteredData.stream().map(CedarAnnotation::getPathObject).toList();
         try {
             backupAnnotations(annotationFile);
             PathIO.exportObjectsAsGeoJSON(annotationFile, pathObjets);
@@ -752,7 +768,7 @@ public class CedarExtensionView {
         try {
             logger.info("Loading annotation: " + annotationFile.getAbsolutePath());
 
-            ObservableList<CedarAnnotation> cedarAnnotations = null;
+            cedarAnnotations = null;
             if (annotationFile.getName().endsWith(".geojson")) {
                 //cedarAnnotations = loadFromGeoJSON(annotationFile);
             }
