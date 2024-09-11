@@ -398,13 +398,6 @@ public class CedarExtensionView {
         // Create new text field for filter
         TextField filterField = new TextField();
         filterField.setTooltip(new Tooltip("Return or enter to filter"));
-        filterField.setOnKeyPressed(keyEvent -> {
-            if(keyEvent.getCode() == KeyCode.ENTER ) {
-                String searchText = filterField.getText().trim();
-                String selectedColumnName = choiceBox.getSelectionModel().getSelectedItem();
-                filterAnnotationTable(searchText, selectedColumnName);
-            }
-        });
         filterField.setOnAction(event -> {
             String searchText = filterField.getText().trim();
             String selectedColumnName = choiceBox.getSelectionModel().getSelectedItem();
