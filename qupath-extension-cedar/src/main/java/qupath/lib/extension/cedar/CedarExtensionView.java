@@ -167,8 +167,7 @@ public class CedarExtensionView {
                 ObservableList<CedarAnnotation> source = (ObservableList<CedarAnnotation>) tableData.getSource();
                 source.removeAll(toBeRemoved);
             }
-        }
-        else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.ADDED) {
+        } else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.ADDED) {
             List<CedarAnnotation> toBeAdded = new ArrayList<>();
             for (PathObject pathObject : changedObjects) {
                 // For some reason, the same PathObject is passed as ADDED multiple time
@@ -193,8 +192,7 @@ public class CedarExtensionView {
                 ObservableList<CedarAnnotation> source = (ObservableList<CedarAnnotation>) tableData.getSource();
                 source.addAll(toBeAdded);
             }
-        }
-        else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.CHANGE_CLASSIFICATION) {
+        } else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.CHANGE_CLASSIFICATION) {
             // This may not be that efficient. But probably the easiest!
             annotationTable.refresh();
         }
@@ -269,7 +267,7 @@ public class CedarExtensionView {
         buttonBox.getChildren().add(updateAnnotationBtn);
         cedarBox.getChildren().add(buttonBox);
 
-        ((BorderPane)contentPane).setCenter(cedarBox);
+        ((BorderPane) contentPane).setCenter(cedarBox);
     }
 
     public QuPathGUI getQupath() {
@@ -319,8 +317,7 @@ public class CedarExtensionView {
                 if (timeline.getStatus() == Animation.Status.PAUSED) {
                     timeline.play();
                     pauseBtn.setDisable(false);
-                }
-                else if (timeline.getStatus() == Animation.Status.RUNNING) {
+                } else if (timeline.getStatus() == Animation.Status.RUNNING) {
                     timeline.pause();
                     pauseBtn.setDisable(true);
                 }
@@ -426,8 +423,7 @@ public class CedarExtensionView {
         Predicate<CedarAnnotation> filter = null;
         if (selectedColumnName == null) {
             filter = cedarAnnotation -> true;
-        }
-        else {
+        } else {
             switch (selectedColumnName) {
                 case "class name":
                     filter = cedarAnnotation -> cedarAnnotation.getClassName().toLowerCase().contains(searchText.toLowerCase());
@@ -528,8 +524,7 @@ public class CedarExtensionView {
 //                });
                 return cell;
             });
-        }
-        else {
+        } else {
             // Have to call this. Otherwise, the table cannot be edited.
             classCol.setCellFactory(TextFieldTableCell.forTableColumn());
         }
@@ -544,7 +539,7 @@ public class CedarExtensionView {
 //        col.setCellFactory(column -> new AnnotationTypeChoiceBox<>(AnnotationType.values()));
         col.setCellFactory(column -> {
             ChoiceBoxTableCell<CedarAnnotation, AnnotationType> cell = new ChoiceBoxTableCell<>(AnnotationType.values());
-            cell.setOnMouseClicked(event ->{
+            cell.setOnMouseClicked(event -> {
                 if (!cell.isEditing())
                     cell.startEdit();
             });
@@ -560,7 +555,7 @@ public class CedarExtensionView {
             ObservableList<String> classNames = FXCollections.observableArrayList(CedarPathClassHandler.getHandler().getClassNames());
             ChoiceBoxTableCell<CedarAnnotation, String> cell = new ChoiceBoxTableCell<>(classNames);
             // Enable single click to edit
-            cell.setOnMouseClicked(event ->{
+            cell.setOnMouseClicked(event -> {
                 if (!cell.isEditing())
                     cell.startEdit();
             });
@@ -655,8 +650,7 @@ public class CedarExtensionView {
         try {
             backupAnnotations(annotationFile);
             PathIO.exportObjectsAsGeoJSON(annotationFile, pathObjets);
-        }
-        catch(IOException e) {
+        } catch (IOException e) {
             logger.error("Cannot save the annotation: " + e.getMessage(), e);
         }
     }
@@ -734,7 +728,7 @@ public class CedarExtensionView {
         FileFilter filter = new FileFilter() {
             @Override
             public boolean accept(File file) {
-                String fileName   = file.getName();
+                String fileName = file.getName();
                 return !file.getName().startsWith("."); // Include all no hidden files
             }
         };
@@ -751,6 +745,7 @@ public class CedarExtensionView {
 
     /**
      * Load an image file.
+     *
      * @param imageFile
      * @return
      */
@@ -778,8 +773,7 @@ public class CedarExtensionView {
                 this.pathObjectHierarchy = hierarchy;
             }
             return rtn;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Image",
                     "Cannot open image: " + imageFile.getName());
             logger.error("Cannot open image: " + imageFile.getAbsolutePath(), e);
@@ -790,6 +784,7 @@ public class CedarExtensionView {
     /**
      * Load the annotations for the passed image file. It is assumed the annotations should be in a
      * json file having the same file name, but in the annotations folder.
+     *
      * @param imageFile Note: the passed parameter is an image file, not its annotation file.
      * @return
      */
@@ -814,8 +809,7 @@ public class CedarExtensionView {
             inferAnnotationBtn.setDisable(true);
             filterTF.clear();
             return parseAnnotationFile(annotationFile);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Annotation",
                     "Cannot open annotation for: " + imageFile.getName());
             logger.error("Cannot open annotation for: " + imageFile.getAbsolutePath(), e);
@@ -828,8 +822,7 @@ public class CedarExtensionView {
         ObservableList<CedarAnnotation> cedarAnnotations = null;
         if (annotationFile.getName().endsWith(".geojson")) {
             cedarAnnotations = loadFromGeoJSON(annotationFile);
-        }
-        else if (annotationFile.getName().endsWith(".json")) {
+        } else if (annotationFile.getName().endsWith(".json")) {
             cedarAnnotations = loadFromJSON((annotationFile));
         }
         if (cedarAnnotations == null) {
@@ -850,7 +843,8 @@ public class CedarExtensionView {
 
     /**
      * Sort the list of CedarAnnoations based on ROI's centroid starting from top left corner to the bottom right corner.
-     * @param annoations
+     *
+     * @param annotations
      */
     private void sortAnnotations(List<CedarAnnotation> annotations) {
         annotations.sort((a1, a2) -> {
@@ -923,18 +917,19 @@ public class CedarExtensionView {
             cedarAnnotation.setClassName(pathCls.getName());
         }
 
-        return  cedarAnnotations;
+        return cedarAnnotations;
     }
 
-    private ObservableList<CedarAnnotation> loadFromGeoJSON(File annotationFile) throws  IOException {
+    private ObservableList<CedarAnnotation> loadFromGeoJSON(File annotationFile) throws IOException {
         List<PathObject> geoObjects = PathIO.readObjects(annotationFile);
         // Convert it into a list of CedarAnnotation
         ObservableList<CedarAnnotation> cedarAnnotations = FXCollections.observableArrayList(geoObjects.stream().map(p -> new CedarAnnotation(p)).toList());
-        return  cedarAnnotations;
+        return cedarAnnotations;
     }
 
     /**
      * Provide a tabbed view so that this view can be added into a TabPane.
+     *
      * @return
      */
     public Tab getTabView() {
