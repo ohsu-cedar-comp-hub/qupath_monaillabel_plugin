@@ -16,7 +16,7 @@ public class CedarExtension implements QuPathExtension {
         chooserFolderAction.setAccelerator(KeyCombination.keyCombination("ctrl+i"));
         // This extension is based on Monai Label. Therefore, the following should be reliable.
         // Otherwise, a new menu will be created.
-        var menu = qupath.getMenu("MONAI Label>CEDAR", true);
+        var menu = qupath.getMenu("CEDAR", true);
         MenuTools.addMenuItems(menu, chooserFolderAction);
     }
 

@@ -1,7 +1,10 @@
 package qupath.lib.extension.cedar;
 
 import com.google.gson.Gson;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.concurrent.Task;
+import javafx.geometry.Point2D;
 import javafx.scene.Scene;
 import javafx.scene.control.ProgressBar;
 import javafx.scene.control.ProgressIndicator;
@@ -10,19 +13,32 @@ import javafx.scene.paint.Color;
 import javafx.stage.Modality;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import org.locationtech.jts.geom.Geometry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import qupath.fx.dialogs.Dialogs;
 import qupath.lib.extension.monailabel.MonaiLabelClient;
 import qupath.lib.extension.monailabel.RequestUtils;
+import qupath.lib.extension.monailabel.Utils;
+import qupath.lib.geom.Point2;
+import qupath.lib.images.writers.ImageWriterTools;
+import qupath.lib.io.PathIO;
+import qupath.lib.objects.PathAnnotationObject;
+import qupath.lib.objects.PathObject;
+import qupath.lib.regions.RegionRequest;
+import qupath.lib.roi.GeometryROI;
+import qupath.lib.roi.PolygonROI;
+import qupath.lib.roi.interfaces.ROI;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import java.io.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -37,7 +53,7 @@ public class AnnotationInferrer {
     public AnnotationInferrer() {
     }
 
-    public void infer(File imageFile, File annotationFolder, CedarExtensionView extension) {
+    public void infer(ROI roi, File imageFile, File annotationFolder, CedarExtensionView extension) {
         ProgressIndicator progressIndicator = new ProgressIndicator(-1);
         // Wrap the progress indicator in a layout if needed
         StackPane root = new StackPane(progressIndicator);
@@ -61,7 +77,7 @@ public class AnnotationInferrer {
 
         dialogStage.show();
 
-        Task<Void> inferTask = createInferTask(imageFile, annotationFolder, extension);
+        Task<Void> inferTask = createInferTask(roi, imageFile, annotationFolder, extension);
         // Handle task completion: need to call here as the main JavaFX thread
         inferTask.setOnSucceeded(event -> {
             dialogStage.close();
@@ -74,18 +90,30 @@ public class AnnotationInferrer {
         new Thread(inferTask).start();
     }
 
-    private Task<Void> createInferTask(File imageFile, File annotationFolder, CedarExtensionView extension) {
+    private File createTempImageForROI(ROI roi, File imageFile, CedarExtensionView view) throws IOException {
+        // The following code is copied and modified from RunInference.java in monailabel ext
+        Path imagePatch = java.nio.file.Files.createTempFile("patch", ".png");
+        String patchFileName = imagePatch.toString();
+        var requestROI = RegionRequest.createInstance(imageFile.getPath(), 1, roi);
+        ImageWriterTools.writeImageRegion(view.getQupath().getImageData().getServer(), requestROI, patchFileName);
+        return imagePatch.toFile();
+    }
+
+    private Task<Void> createInferTask(ROI roi, File imageFile, File annotationFolder, CedarExtensionView extension) {
         return new Task<>() {
             @Override
             protected Void call() {
-                _infer(imageFile, annotationFolder, extension);
+                _infer(roi, imageFile, annotationFolder, extension);
                 return null;
             }
         };
     }
 
-    private void _infer(File imageFile, File annotationFolder, CedarExtensionView extension)  {
+    private void _infer(ROI roi, File imageFile, File annotationFolder, CedarExtensionView extension)  {
         try {
+            // See if we need to have a patch image file
+            if (roi != null)
+                imageFile = createTempImageForROI(roi, imageFile, extension);
             logger.info("Infer annotation for " + imageFile);
             // The following code is based on MonaiLabelClient.java in qupath.lib.extension.monailabel
             String model = MODEL;
@@ -109,24 +137,50 @@ public class AnnotationInferrer {
 
             String response = RequestUtils.requestMultiPart("POST", uri, files, filelds);
 
-            // Save the file
-            String fileName = imageFile.getName();
-            int lastIndex = fileName.lastIndexOf(".");
-            fileName = fileName.substring(0, lastIndex);
-            File annotationFile = new File(annotationFolder, fileName + ".geojson");
-            // Consider using a buffer writer
-            FileWriter fileWriter = new FileWriter(annotationFile);
-            fileWriter.write(response);
-            fileWriter.flush();
-            fileWriter.close();
-
-            extension.parseAnnotationFile(annotationFile);
+            if (roi != null) {
+                List<PathObject> pathObjects = adjustAnnotationForROI(response, roi);
+                // Directly add to the table. No need to save.
+                extension.addPathObjects(pathObjects);
+            }
+            else {
+                // Save the file
+                String fileName = imageFile.getName();
+                int lastIndex = fileName.lastIndexOf(".");
+                fileName = fileName.substring(0, lastIndex);
+                File annotationFile = new File(annotationFolder, fileName + ".geojson");
+                // Consider using a buffer writer
+                FileWriter fileWriter = new FileWriter(annotationFile);
+                fileWriter.write(response);
+                fileWriter.flush();
+                fileWriter.close();
+                extension.parseAnnotationFile(annotationFile);
+            }
         }
         catch(Exception e) {
             Dialogs.showErrorMessage("Error in Annotation Inference",
                     "Error in inferring annotations for : " + imageFile.getName());
             logger.error("Cannot infer annotations for: " + imageFile.getAbsolutePath(), e);
         }
+    }
+
+    /**
+     * Adjust the offset and scale for annoations inferred for an ROI
+     * @param response
+     */
+    private List<PathObject> adjustAnnotationForROI(String response, ROI roi) throws IOException {
+        double offsetX = roi.getBoundsX();
+        double offsetY = roi.getBoundsY();
+        InputStream input = new ByteArrayInputStream(response.getBytes());
+        List<PathObject> geoObjects = PathIO.readObjectsFromGeoJSON(input);
+        geoObjects.stream().forEach(obj -> {
+            ROI objROI = obj.getROI();
+            if (objROI instanceof PolygonROI && obj instanceof PathAnnotationObject) { // The default
+                PolygonROI p = (PolygonROI) objROI;
+                ROI translatedROI = p.translate(offsetX, offsetY);
+                ((PathAnnotationObject)obj).setROI(translatedROI);
+            }
+        });
+        return geoObjects;
     }
 
     // A simple model for converting to json parameters

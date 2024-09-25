@@ -30,6 +30,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
 import qupath.lib.geom.Point2;
+import qupath.lib.gui.QuPathApp;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.images.ImageData;
 import qupath.lib.io.PathIO;
@@ -145,6 +146,8 @@ public class CedarExtensionView {
                     // Otherwise, the user has to do double click to the current selected
                     // row to get the selection. This is very weird!!!!
                     annotationTable.getSelectionModel().getSelectedItem();
+                    // Update the button manually
+                    this.inferAnnotationBtn.setDisable(annotation.getClassId() != -1);
                     annotationTable.scrollTo(annotation);
                 });
         this.isHandlingPathObjectSelection = false;
@@ -192,7 +195,8 @@ public class CedarExtensionView {
                 ObservableList<CedarAnnotation> source = (ObservableList<CedarAnnotation>) tableData.getSource();
                 source.addAll(toBeAdded);
             }
-        } else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.CHANGE_CLASSIFICATION) {
+        }
+        else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.CHANGE_CLASSIFICATION) {
             // This may not be that efficient. But probably the easiest!
             annotationTable.refresh();
         }
@@ -261,7 +265,6 @@ public class CedarExtensionView {
         updateAnnotationBtn = new Button("Update Annotation");
         updateAnnotationBtn.setOnAction(e -> {
             saveAnnotations();
-            updateAnnotationBtn.setDisable(true); // Disable it after saving
         });
         updateAnnotationBtn.setDisable(true);
         buttonBox.getChildren().add(updateAnnotationBtn);
@@ -277,7 +280,12 @@ public class CedarExtensionView {
     private void inferAnnotations() {
         File imageFile = imageList.getSelectionModel().getSelectedItem();
         File annotationsFolder = getAnnotationsFolder(currentFolder);
-        new AnnotationInferrer().infer(imageFile, annotationsFolder, this);
+        // Check if this is for a ROI
+        ROI roi = null;
+        CedarAnnotation annotation = annotationTable.getSelectionModel().getSelectedItem();
+        if (annotation.getPathObject() != null)
+            roi = annotation.getPathObject().getROI();
+        new AnnotationInferrer().infer(roi, imageFile, annotationsFolder, this);
     }
 
     private HBox createAnimationPane() {
@@ -635,6 +643,8 @@ public class CedarExtensionView {
             return;
         QP.selectObjects(pathObject);
         this.qupath.getViewer().centerROI(pathObject.getROI());
+        // Enable the "Infer Annotation" button when class id = -1 (a flag for a new path object)
+        this.inferAnnotationBtn.setDisable(annotation.getClassId() != -1);
     }
 
     private void saveAnnotations() {
@@ -646,10 +656,12 @@ public class CedarExtensionView {
         File annotationFile = getAnnotationFileForImage(currentImageFile, true);
         // Since we have used filer, we need to use the source of the original filtered list
         FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) annotationTable.getItems();
-        List<PathObject> pathObjets = tableData.getSource().stream().map(a -> a.getPathObject()).toList();
+        List<PathObject> pathObjects = tableData.getSource().stream().map(a -> a.getPathObject()).toList();
         try {
             backupAnnotations(annotationFile);
-            PathIO.exportObjectsAsGeoJSON(annotationFile, pathObjets);
+            PathIO.exportObjectsAsGeoJSON(annotationFile, pathObjects);
+            // Disable after saving
+            this.updateAnnotationBtn.setDisable(true);
         } catch (IOException e) {
             logger.error("Cannot save the annotation: " + e.getMessage(), e);
         }
@@ -712,6 +724,8 @@ public class CedarExtensionView {
             annotationFolder.mkdir();
 //            return;
         }
+        // Before switch to the new folder, save whatever annotation we have if needed.
+        saveAnnotations();
         this.currentFolder = folder;
         this.folderLabel.setText(folder.getAbsolutePath());
         listImages();
@@ -815,6 +829,29 @@ public class CedarExtensionView {
             logger.error("Cannot open annotation for: " + imageFile.getAbsolutePath(), e);
             return false;
         }
+    }
+
+    void addPathObjects(List<PathObject> pathObjects) {
+        ImageData<BufferedImage> imageData = qupath.getImageData();
+        imageData.getHierarchy().addObjects(pathObjects);
+        ObservableList<CedarAnnotation> newAnnotations = FXCollections.observableArrayList(pathObjects.stream().map(p -> new CedarAnnotation(p)).toList());
+        sortAnnotations(newAnnotations);
+        FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) annotationTable.getItems();
+        ObservableList<CedarAnnotation> source = (ObservableList<CedarAnnotation>) tableData.getSource();
+        // Insert just below the original path object that is selected
+        int selectedIndex = annotationTable.getSelectionModel().getSelectedIndex();
+        if (selectedIndex > -1)
+            source.addAll(selectedIndex, newAnnotations);
+        else
+            source.addAll(newAnnotations); // insert at the end
+        // Enable save button so that we can save
+        this.updateAnnotationBtn.setDisable(false);
+        // Select all together with the original one
+        List<PathObject> toBeSelected = new ArrayList<>(pathObjects);
+        CedarAnnotation selectedAnnoation = annotationTable.getSelectionModel().getSelectedItem();
+        if (selectedAnnoation != null)
+            toBeSelected.add(selectedAnnoation.getPathObject());
+        QP.selectObjects(toBeSelected);
     }
 
     boolean parseAnnotationFile(File annotationFile) throws IOException {
