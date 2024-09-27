@@ -11,6 +11,7 @@ import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.collections.transformation.FilteredList;
+import javafx.collections.transformation.SortedList;
 import javafx.geometry.Insets;
 import javafx.geometry.Orientation;
 import javafx.geometry.Pos;
@@ -30,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
 import qupath.lib.geom.Point2;
-import qupath.lib.gui.QuPathApp;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.images.ImageData;
 import qupath.lib.io.PathIO;
@@ -166,8 +166,7 @@ public class CedarExtensionView {
                 }
             }
             if (toBeRemoved.size() > 0) {
-                FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) annotationTable.getItems();
-                ObservableList<CedarAnnotation> source = (ObservableList<CedarAnnotation>) tableData.getSource();
+                ObservableList<CedarAnnotation> source = getTableSource();
                 source.removeAll(toBeRemoved);
             }
         } else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.ADDED) {
@@ -191,8 +190,7 @@ public class CedarExtensionView {
                 toBeAdded.add(cedarAnnotation);
             }
             if (toBeAdded.size() > 0) {
-                FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) annotationTable.getItems();
-                ObservableList<CedarAnnotation> source = (ObservableList<CedarAnnotation>) tableData.getSource();
+                ObservableList<CedarAnnotation> source = getTableSource();
                 source.addAll(toBeAdded);
             }
         }
@@ -201,6 +199,12 @@ public class CedarExtensionView {
             annotationTable.refresh();
         }
         updateAnnotationBtn.setDisable(false);
+    }
+
+    private ObservableList<CedarAnnotation> getTableSource() {
+        SortedList<CedarAnnotation> sortedList = (SortedList<CedarAnnotation>) annotationTable.getItems();
+        FilteredList<CedarAnnotation> filteredList = (FilteredList<CedarAnnotation>) sortedList.getSource();
+        return (ObservableList<CedarAnnotation>) filteredList.getSource();
     }
 
     private void init() {
@@ -283,7 +287,7 @@ public class CedarExtensionView {
         // Check if this is for a ROI
         ROI roi = null;
         CedarAnnotation annotation = annotationTable.getSelectionModel().getSelectedItem();
-        if (annotation.getPathObject() != null)
+        if (annotation != null && annotation.getPathObject() != null)
             roi = annotation.getPathObject().getROI();
         new AnnotationInferrer().infer(roi, imageFile, annotationsFolder, this);
     }
@@ -453,7 +457,8 @@ public class CedarExtensionView {
             }
         }
         if (filter != null) {
-            FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) annotationTable.getItems();
+            SortedList<CedarAnnotation> sortedList = (SortedList<CedarAnnotation>) annotationTable.getItems();
+            FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) sortedList.getSource();
             tableData.setPredicate(filter);
             updatePathObjectHierarchy();
         }
@@ -508,7 +513,12 @@ public class CedarExtensionView {
         });
 
         // To avoid any null exception, an empty filtered list is added
-        annotationTable.setItems(new FilteredList<>(FXCollections.observableArrayList()));
+        FilteredList<CedarAnnotation> filteredList = new FilteredList(FXCollections.observableArrayList());
+        // Use sorted list so that we can still sort the columns
+        SortedList<CedarAnnotation> sortedList = new SortedList(filteredList);
+        sortedList.comparatorProperty().bind(annotationTable.comparatorProperty());
+
+        annotationTable.setItems(sortedList);
     }
 
     private TableColumn<CedarAnnotation, String> createTableColumn(String colName, String propName, boolean enableOneClickEdit) {
@@ -655,8 +665,7 @@ public class CedarExtensionView {
         // Save the data into geojson
         File annotationFile = getAnnotationFileForImage(currentImageFile, true);
         // Since we have used filer, we need to use the source of the original filtered list
-        FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) annotationTable.getItems();
-        List<PathObject> pathObjects = tableData.getSource().stream().map(a -> a.getPathObject()).toList();
+        List<PathObject> pathObjects = getTableSource().stream().map(a -> a.getPathObject()).toList();
         try {
             backupAnnotations(annotationFile);
             PathIO.exportObjectsAsGeoJSON(annotationFile, pathObjects);
@@ -813,7 +822,8 @@ public class CedarExtensionView {
             Dialogs.showWarningNotification("No Annotation File",
                     "Cannot find an annotation file for the image file, " + imageFile.getName() + ".");
             // Reset the table first
-            annotationTable.setItems(new FilteredList<>(FXCollections.observableArrayList()));
+            ObservableList<CedarAnnotation> source = getTableSource();
+            source.clear();
             updateAnnotationBtn.setDisable(true);
             inferAnnotationBtn.setDisable(false);
             return false;
@@ -836,8 +846,7 @@ public class CedarExtensionView {
         imageData.getHierarchy().addObjects(pathObjects);
         ObservableList<CedarAnnotation> newAnnotations = FXCollections.observableArrayList(pathObjects.stream().map(p -> new CedarAnnotation(p)).toList());
         sortAnnotations(newAnnotations);
-        FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) annotationTable.getItems();
-        ObservableList<CedarAnnotation> source = (ObservableList<CedarAnnotation>) tableData.getSource();
+        ObservableList<CedarAnnotation> source = getTableSource();
         // Insert just below the original path object that is selected
         int selectedIndex = annotationTable.getSelectionModel().getSelectedIndex();
         if (selectedIndex > -1)
@@ -848,9 +857,9 @@ public class CedarExtensionView {
         this.updateAnnotationBtn.setDisable(false);
         // Select all together with the original one
         List<PathObject> toBeSelected = new ArrayList<>(pathObjects);
-        CedarAnnotation selectedAnnoation = annotationTable.getSelectionModel().getSelectedItem();
-        if (selectedAnnoation != null)
-            toBeSelected.add(selectedAnnoation.getPathObject());
+        CedarAnnotation selectedAnnotation = annotationTable.getSelectionModel().getSelectedItem();
+        if (selectedAnnotation != null)
+            toBeSelected.add(selectedAnnotation.getPathObject());
         QP.selectObjects(toBeSelected);
     }
 
@@ -871,8 +880,9 @@ public class CedarExtensionView {
         cedarAnnotations.forEach(a -> imageData.getHierarchy().addObject(a.getPathObject(), false));
         sortAnnotations(cedarAnnotations);
         // Wrap the annotation list into a FilteredList so that we can do filtering
-        FilteredList<CedarAnnotation> tableData = new FilteredList<>(cedarAnnotations);
-        annotationTable.setItems(tableData);
+        // Replace the data for the table. We only need to replace the original source
+        // the table view will be refreshed automatically.
+        getTableSource().setAll(cedarAnnotations);
         updateAnnotationBtn.setDisable(true);
         QP.fireHierarchyUpdate(this.qupath.getImageData().getHierarchy());
         return true;
