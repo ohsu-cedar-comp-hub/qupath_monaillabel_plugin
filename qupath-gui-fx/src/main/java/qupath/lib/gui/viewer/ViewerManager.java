@@ -1505,18 +1505,35 @@ public class ViewerManager implements QuPathViewerListener {
 		updateSetAnnotationPathClassMenu(menuSetClass.getItems(), viewer, true);
 	}
 
-		
+	private boolean checkPathAnnotationObjectSelected(QuPathViewer viewer) {
+		Collection<PathObject> selectedObjects = viewer.getAllSelectedObjects();
+		if (selectedObjects == null || selectedObjects.size() == 0)
+			return false;
+		for (PathObject pathObject : selectedObjects) {
+			if (!(pathObject instanceof  PathAnnotationObject))
+				return false;
+		}
+		return true; // Pass all tests
+	}
+
+	// NB by Guanming Wu: The following code has been updated so that it can be used to set classes for multiple selected objects.
+	// The current implementation doesn't make sense: There are two ways to select multiple objects, command + click which works and rectangle selection
+	// which doesn't work. The change makes both selection works.
 	private void updateSetAnnotationPathClassMenu(final ObservableList<MenuItem> menuSetClassItems, final QuPathViewer viewer, final boolean useFancyIcons) {
 		// We need a viewer and an annotation, as well as some PathClasses, otherwise we just need to ensure the menu isn't visible
 		var availablePathClasses = qupath.getAvailablePathClasses();
-		if (viewer == null || !(viewer.getSelectedObject() instanceof PathAnnotationObject) || availablePathClasses.isEmpty()) {
+		// Updated by guanmingwu@OHSU: Make sure the set class can work when multiple objects are selected
+		if (viewer == null || !(this.checkPathAnnotationObjectSelected(viewer)) || availablePathClasses.isEmpty()) {
+//		if (viewer == null || !(viewer.getSelectedObject() instanceof PathAnnotationObject) || availablePathClasses.isEmpty()) {
 			menuSetClassItems.clear();
 			return;
 		}
 		
 		int iconSize = QuPathGUI.TOOLBAR_ICON_SIZE;
 		
-		PathObject mainPathObject = viewer.getSelectedObject();
+//		PathObject mainPathObject = viewer.getSelectedObject();
+		// Whatever is the first will be used.
+		PathObject mainPathObject = viewer.getAllSelectedObjects().iterator().next();
 		PathClass currentClass = mainPathObject.getPathClass();
 		
 		ToggleGroup group = new ToggleGroup();

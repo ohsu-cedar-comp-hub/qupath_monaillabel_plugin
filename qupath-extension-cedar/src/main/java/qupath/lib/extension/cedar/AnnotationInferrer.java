@@ -69,11 +69,11 @@ public class AnnotationInferrer {
         dialogStage.initOwner(extension.getQupath().getStage()); // Set the owner for modality
         dialogStage.setScene(scene);
 
-        // The location of dialogState may be offset a little bit. Don't adjust anything
-        // here to avoid even weirder behavior!!!
-//        Stage primaryStage = extension.getQupath().getStage();
-//        dialogStage.setX(primaryStage.getX());
-//        dialogStage.setY(primaryStage.getY());
+        // The location of dialogState may be offset a little bit.
+        // Need to adjust the location here.
+        Stage primaryStage = extension.getQupath().getStage();
+        dialogStage.setX(primaryStage.getX());
+        dialogStage.setY(primaryStage.getY());
 
         dialogStage.show();
 

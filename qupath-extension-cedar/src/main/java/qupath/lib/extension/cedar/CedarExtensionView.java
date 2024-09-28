@@ -90,6 +90,8 @@ public class CedarExtensionView {
     private TextField durationTF;
     // Filter TextField to be reset after loading
     private TextField filterTF;
+    // A flag to block the changes to self
+    private boolean changeFromObject;
 
     private static CedarExtensionView view;
 
@@ -155,10 +157,12 @@ public class CedarExtensionView {
 
 
     private void handlePathObjectChangeEvent(PathObjectHierarchyEvent event) {
-        List<PathObject> changedObjects = event.getChangedObjects();
-        if (changedObjects == null || changedObjects.size() == 0)
-            return;
+        if (changeFromObject)
+            return; // Changes from this object
         if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.REMOVED) {
+            List<PathObject> changedObjects = event.getChangedObjects();
+            if (changedObjects == null || changedObjects.size() == 0)
+                return;
             List<CedarAnnotation> toBeRemoved = new ArrayList<>();
             for (CedarAnnotation annotation : annotationTable.getItems()) {
                 if (changedObjects.contains(annotation.getPathObject())) {
@@ -169,7 +173,11 @@ public class CedarExtensionView {
                 ObservableList<CedarAnnotation> source = getTableSource();
                 source.removeAll(toBeRemoved);
             }
-        } else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.ADDED) {
+        }
+        else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.ADDED) {
+            List<PathObject> changedObjects = event.getChangedObjects();
+            if (changedObjects == null || changedObjects.size() == 0)
+                return;
             List<CedarAnnotation> toBeAdded = new ArrayList<>();
             for (PathObject pathObject : changedObjects) {
                 // For some reason, the same PathObject is passed as ADDED multiple time
@@ -182,11 +190,7 @@ public class CedarExtensionView {
                 }
                 if (existed)
                     continue;
-                CedarAnnotation cedarAnnotation = new CedarAnnotation();
-                cedarAnnotation.setPathObject(pathObject);
-                cedarAnnotation.setAnnotationStyle("manual");
-                cedarAnnotation.setClassId(-1); // Use -1 as a flag for not labeled
-                cedarAnnotation.setMetaData("Created in QuPath");
+                CedarAnnotation cedarAnnotation = this.createNewAnnotationForPathObject(pathObject);
                 toBeAdded.add(cedarAnnotation);
             }
             if (toBeAdded.size() > 0) {
@@ -194,11 +198,66 @@ public class CedarExtensionView {
                 source.addAll(toBeAdded);
             }
         }
+        else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.OTHER_STRUCTURE_CHANGE) {
+            // This event is fired when multiple objects are deleted, merged, or split at the same time
+            // For this event, getChangedObjects returns null. Therefore, we need to do some details comparison
+            // to remove or add new
+            Collection<PathObject> currentObjects = event.getHierarchy().getAllObjects(false);
+            ObservableList<CedarAnnotation> source = getTableSource();
+            List<CedarAnnotation> toBeRemoved = new ArrayList<>();
+            for (CedarAnnotation annotation : source) {
+                if (!currentObjects.contains(annotation.getPathObject())) {
+                    toBeRemoved.add(annotation);
+                }
+            }
+            List<CedarAnnotation> toBeAdded = new ArrayList<>();
+            for (PathObject pathObject : currentObjects) {
+                boolean exist = false;
+                for (CedarAnnotation annotation : source) {
+                    if (annotation.getPathObject() == pathObject) {
+                        exist = true;
+                        break;
+                    }
+                }
+                if (!exist) {
+                    CedarAnnotation cedarAnnotation = this.createNewAnnotationForPathObject(pathObject);
+                    toBeAdded.add(cedarAnnotation);
+                }
+            }
+            if (toBeAdded.size() > 0 || toBeRemoved.size() > 0) {
+                source.removeAll(toBeRemoved);
+                source.addAll(toBeAdded);
+            }
+        }
         else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.CHANGE_CLASSIFICATION) {
             // This may not be that efficient. But probably the easiest!
+            // Need to make sure class ids are correct
+            List<PathObject> changedObjects = event.getChangedObjects();
+            if (changedObjects == null || changedObjects.size() == 0)
+                return;
+            ObservableList<CedarAnnotation> source = getTableSource();
+            for (PathObject pathObject : changedObjects) {
+                for (CedarAnnotation annotation : source) {
+                    if (annotation.getPathObject() == pathObject) {
+                        Integer id = CedarPathClassHandler.getHandler().getClassId(pathObject.getPathClass().getName());
+                        annotation.setClassId(id);
+                    }
+                }
+            }
             annotationTable.refresh();
         }
         updateAnnotationBtn.setDisable(false);
+    }
+
+    private CedarAnnotation createNewAnnotationForPathObject(PathObject pathObject) {
+        CedarAnnotation cedarAnnotation = new CedarAnnotation();
+        cedarAnnotation.setPathObject(pathObject);
+        if (pathObject.getPathClass() == null) {
+            cedarAnnotation.setAnnotationStyle("manual");
+            cedarAnnotation.setClassId(-1); // Use -1 as a flag for not labeled
+            cedarAnnotation.setMetaData("Created in QuPath");
+        }
+        return cedarAnnotation;
     }
 
     private ObservableList<CedarAnnotation> getTableSource() {
@@ -460,7 +519,9 @@ public class CedarExtensionView {
             SortedList<CedarAnnotation> sortedList = (SortedList<CedarAnnotation>) annotationTable.getItems();
             FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) sortedList.getSource();
             tableData.setPredicate(filter);
+            changeFromObject = true;
             updatePathObjectHierarchy();
+            changeFromObject = false;
         }
     }
 
@@ -637,6 +698,8 @@ public class CedarExtensionView {
         // Inside runLater doesn't work when no dialog is shown!
 //        Platform.runLater(() -> loadAnnotation(imageFile));
         // Use thread works for both cases.
+        // However, an exception is thrown sometimes indicating this thread is not
+        // in the JavaFX thread.
         Thread t = new Thread(() -> loadAnnotation(imageFile));
         t.start();
 //        loadAnnotation(imageFile);
@@ -831,7 +894,8 @@ public class CedarExtensionView {
         try {
             // If there is annotation, the infer button should be disabled
             inferAnnotationBtn.setDisable(true);
-            filterTF.clear();
+            if (filterTF != null)
+                filterTF.clear();
             return parseAnnotationFile(annotationFile);
         } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Annotation",
@@ -843,6 +907,7 @@ public class CedarExtensionView {
 
     void addPathObjects(List<PathObject> pathObjects) {
         ImageData<BufferedImage> imageData = qupath.getImageData();
+        changeFromObject = true;
         imageData.getHierarchy().addObjects(pathObjects);
         ObservableList<CedarAnnotation> newAnnotations = FXCollections.observableArrayList(pathObjects.stream().map(p -> new CedarAnnotation(p)).toList());
         sortAnnotations(newAnnotations);
@@ -861,6 +926,7 @@ public class CedarExtensionView {
         if (selectedAnnotation != null)
             toBeSelected.add(selectedAnnotation.getPathObject());
         QP.selectObjects(toBeSelected);
+        changeFromObject = false;
     }
 
     boolean parseAnnotationFile(File annotationFile) throws IOException {
@@ -875,16 +941,20 @@ public class CedarExtensionView {
             logger.info("Cannot load annnotation file. The file must have extension name .geojson or .json.");
             return false;
         }
-
+        changeFromObject = true;
         ImageData<BufferedImage> imageData = this.qupath.getImageData();
         cedarAnnotations.forEach(a -> imageData.getHierarchy().addObject(a.getPathObject(), false));
         sortAnnotations(cedarAnnotations);
         // Wrap the annotation list into a FilteredList so that we can do filtering
         // Replace the data for the table. We only need to replace the original source
         // the table view will be refreshed automatically.
-        getTableSource().setAll(cedarAnnotations);
-        updateAnnotationBtn.setDisable(true);
+        ObservableList<CedarAnnotation> dataSource = this.getTableSource();
+        dataSource.clear();
+        dataSource.setAll(cedarAnnotations);
+        // Have to wrap it into this. Otherwise, it cannot be disabled.
+        Platform.runLater(() -> updateAnnotationBtn.setDisable(true));
         QP.fireHierarchyUpdate(this.qupath.getImageData().getHierarchy());
+        changeFromObject = false;
         return true;
     }
 
