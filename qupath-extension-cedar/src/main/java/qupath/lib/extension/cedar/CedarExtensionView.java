@@ -30,6 +30,8 @@ import javafx.util.converter.IntegerStringConverter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
+import qupath.lib.extension.cedar.ActionLogging.CedarExtensionAction;
+import qupath.lib.extension.cedar.ActionLogging.QPathActionTrackingInterface;
 import qupath.lib.geom.Point2;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.images.ImageData;
@@ -45,6 +47,7 @@ import qupath.lib.regions.ImagePlane;
 import qupath.lib.roi.ROIs;
 import qupath.lib.roi.interfaces.ROI;
 import qupath.lib.scripting.QP;
+import qupath.lib.extension.cedar.LoggingAspect.*;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -95,6 +98,14 @@ public class CedarExtensionView {
 
     private static CedarExtensionView view;
 
+    private QPathActionTrackingInterface service;
+    public CedarExtensionView(QPathActionTrackingInterface svc){
+        this.service=svc;
+    }
+
+    // Tracking the action to time and log
+    private static int cedarExtensionActionId = 0;
+    static HashMap<Integer, CedarExtensionAction> trackedAnnotations = new HashMap<>();
     // Make sure there is only one view created
     private CedarExtensionView() {
         init();
@@ -383,6 +394,7 @@ public class CedarExtensionView {
         timeline.setCycleCount(1);
 
         // Use space key to control
+        //TRACK
         annotationTable.setOnKeyPressed(keyEvent -> {
             if (keyEvent.getCode() == KeyCode.SPACE) {
                 if (timeline.getStatus() == Animation.Status.PAUSED) {
@@ -395,6 +407,7 @@ public class CedarExtensionView {
             }
         });
 
+        //TRACK
         startBtn.setOnAction(e -> {
             if (timeline.getStatus() == Animation.Status.PAUSED) {
                 timeline.play();
@@ -408,10 +421,12 @@ public class CedarExtensionView {
             pauseBtn.setDisable(false);
             stopBtn.setDisable(false);
         });
+        //TRACK
         pauseBtn.setOnAction(e -> {
             timeline.pause();
             pauseBtn.setDisable(true);
         });
+        //TRACK
         stopBtn.setOnAction(e -> {
             timeline.stop();
             timeline.getKeyFrames().clear();
@@ -592,6 +607,7 @@ public class CedarExtensionView {
                 TextFieldTableCell<CedarAnnotation, String> cell = new TextFieldTableCell<>();
                 cell.addEventFilter(MouseEvent.MOUSE_CLICKED, event -> {
                     if (event.getClickCount() == 1 && !cell.isEmpty()) {
+                        //TRACK
                         this.annotationTable.edit(cell.getIndex(), column);
                     }
                 });
@@ -619,6 +635,7 @@ public class CedarExtensionView {
         col.setCellFactory(column -> {
             ChoiceBoxTableCell<CedarAnnotation, AnnotationType> cell = new ChoiceBoxTableCell<>(AnnotationType.values());
             cell.setOnMouseClicked(event -> {
+                //TRACK
                 if (!cell.isEditing())
                     cell.startEdit();
             });
@@ -635,6 +652,7 @@ public class CedarExtensionView {
             ChoiceBoxTableCell<CedarAnnotation, String> cell = new ChoiceBoxTableCell<>(classNames);
             // Enable single click to edit
             cell.setOnMouseClicked(event -> {
+                //TRACK
                 if (!cell.isEditing())
                     cell.startEdit();
             });
@@ -657,6 +675,7 @@ public class CedarExtensionView {
         // when the mouse exits.
 //        col.setCellFactory(column -> new AnnotationClassIdTableCell<>());
         col.setCellFactory(column -> {
+            //TRACK
             TextFieldTableCell<CedarAnnotation, Integer> cell = new TextFieldTableCell<>(new IntegerStringConverter());
             cell.setOnMouseClicked(event -> {
                 if (!cell.isEditing())
@@ -705,6 +724,7 @@ public class CedarExtensionView {
 //        loadAnnotation(imageFile);
     }
 
+    @Tracking(action = "Table Annotation Selected")
     private void handleAnnotationTableSelection() {
         if (isHandlingPathObjectSelection)
             return;
@@ -720,6 +740,7 @@ public class CedarExtensionView {
         this.inferAnnotationBtn.setDisable(annotation.getClassId() != -1);
     }
 
+    //@Tracking(action = "Saving an Annotation")
     private void saveAnnotations() {
         // Should not save if it is disabled
         if (this.updateAnnotationBtn.isDisabled() || this.currentImageFile == null)
@@ -739,6 +760,8 @@ public class CedarExtensionView {
         }
     }
 
+    // TODO: use for prototyping
+    @Tracking(action = "")
     private void backupAnnotations(File annoationFile) {
         if (!annoationFile.exists())
             return;
@@ -748,6 +771,7 @@ public class CedarExtensionView {
         if (backupFile.exists())
             backupFile.delete(); // Delete it
         annoationFile.renameTo(backupFile);
+        this.addPropertyToTracking(cedarExtensionActionId, backupFileName);
     }
 
     private File getImagesFolder(File folder) {
@@ -835,7 +859,8 @@ public class CedarExtensionView {
      * @param imageFile
      * @return
      */
-    private boolean loadImage(File imageFile) {
+    @Tracking(action = "Loading an image")
+    public boolean loadImage(File imageFile) {
         try {
             // Save the annotation first in case there is something changed there.
             saveAnnotations();
@@ -857,6 +882,7 @@ public class CedarExtensionView {
                 }
                 // If it is null, still record it.
                 this.pathObjectHierarchy = hierarchy;
+                this.addPropertyToTracking(cedarExtensionActionId, imageFile.getName());
             }
             return rtn;
         } catch (IOException e) {
@@ -874,6 +900,7 @@ public class CedarExtensionView {
      * @param imageFile Note: the passed parameter is an image file, not its annotation file.
      * @return
      */
+    @Tracking(action = "Loading an annotation")
     private boolean loadAnnotation(File imageFile) {
         File annotationFolder = getAnnotationsFolder(this.currentFolder);
         if (!annotationFolder.exists())
@@ -905,6 +932,7 @@ public class CedarExtensionView {
         }
     }
 
+   @Tracking(action = "Adding a Path Object")
     void addPathObjects(List<PathObject> pathObjects) {
         ImageData<BufferedImage> imageData = qupath.getImageData();
         changeFromObject = true;
@@ -1059,4 +1087,14 @@ public class CedarExtensionView {
         return this.TAB_NAME;
     }
 
+   public void addPropertyToTracking(int id, String property) {
+//        CedarExtensionAction cedarExtensionAction = trackedAnnotations.get(id);
+//        String action = cedarExtensionAction.getAction();
+//        cedarExtensionAction.setAction((action += property));
+   }
+
+   public static void addCedarAnnotationTracking(CedarExtensionAction cedarExtensionAction) {
+       trackedAnnotations.put(cedarExtensionActionId, cedarExtensionAction);
+       cedarExtensionActionId++;
+   }
 }
