@@ -843,14 +843,60 @@ public class CedarExtensionView {
             }
         };
         File[] files = imageFolder.listFiles(filter);
-        Arrays.sort(files, Comparator.comparing(File::getName));
-        for (File file : files) {
+        List<File> fileList = checkOMETiff(files);
+        Collections.sort(fileList, Comparator.comparing(File::getName));
+        for (File file : fileList) {
             imageList.getItems().add(file);
         }
-        if (imageList.getItems().size() > 0) {
-            // Select the first image
-            imageList.getSelectionModel().selectFirst();
+//        if (imageList.getItems().size() > 0) {
+//            // Select the first image
+//            imageList.getSelectionModel().selectFirst();
+//        }
+    }
+
+    /**
+     * When there are both tiff and ome.tif images in the same folder, choose ome.tif
+     * images over tif.
+     * @param files
+     * @return
+     */
+    private List<File> checkOMETiff(File[] files) {
+        Map<String, List<File>> name2files = new HashMap<>();
+        List<File> fileList = new ArrayList<>();
+        for (File file : files) {
+            String name = file.getName();
+            if (name.endsWith(".tif") || name.endsWith(".tiff")) {
+                name = name.substring(0, name.lastIndexOf(".tif"));
+                if (name.endsWith(".ome")) {
+                    name = name.substring(0, name.lastIndexOf(".ome"));
+                }
+                List<File> list = name2files.get(name);
+                if (list == null) {
+                    list = new ArrayList<>();
+                    name2files.put(name, list);
+                }
+                list.add(file);
+            }
+            else
+                fileList.add(file);
         }
+        if (name2files.size() == 0)
+            return fileList;
+        for (String name : name2files.keySet()) {
+            List<File> list = name2files.get(name);
+            if (list.size() == 1)
+                fileList.add(list.get(0));
+            else {
+                // Find the ome.tif format
+                for (File file : list) {
+                    if (file.getName().endsWith(".ome.tif") || file.getName().endsWith(".ome.tiff")) {
+                        fileList.add(file);
+                        break;
+                    }
+                }
+            }
+        }
+        return fileList;
     }
 
     /**
