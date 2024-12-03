@@ -2,7 +2,10 @@ package qupath.lib.extension.cedar.ActionLogging;
 
 public class CedarExtensionAction {
 
-    private String action;
+    private String action; //TODO: controlled vocabulary
+    // Could be controlled using reflection and getting all of the Method Names??
+    private String propertyName;
+    private String propertyValue;
     private String startTime;
     private String endTime;
 
@@ -13,10 +16,6 @@ public class CedarExtensionAction {
 
     public String getAction() {
         return action;
-    }
-
-    public void setAction(String action) {
-        this.action = action;
     }
 
     public String getEndTime() {
@@ -31,7 +30,19 @@ public class CedarExtensionAction {
         return startTime;
     }
 
-    public void setStartTime(String startTime) {
-        this.startTime = startTime;
+    public String getPropertyName() {
+        return propertyName;
+    }
+
+    public void setPropertyName(String propertyName) {
+        this.propertyName = propertyName;
+    }
+
+    public String getPropertyValue() {
+        return propertyValue;
+    }
+
+    public void setPropertyValue(String propertyValue) {
+        this.propertyValue = propertyValue;
     }
 }

@@ -31,7 +31,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
 import qupath.lib.extension.cedar.ActionLogging.CedarExtensionAction;
-import qupath.lib.extension.cedar.ActionLogging.QPathActionTrackingInterface;
 import qupath.lib.geom.Point2;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.images.ImageData;
@@ -47,7 +46,6 @@ import qupath.lib.regions.ImagePlane;
 import qupath.lib.roi.ROIs;
 import qupath.lib.roi.interfaces.ROI;
 import qupath.lib.scripting.QP;
-import qupath.lib.extension.cedar.LoggingAspect.*;
 
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -98,14 +96,9 @@ public class CedarExtensionView {
 
     private static CedarExtensionView view;
 
-    private QPathActionTrackingInterface service;
-    public CedarExtensionView(QPathActionTrackingInterface svc){
-        this.service=svc;
-    }
+    private TrackingCedarExtensionActions trackingCedarExtensionActions = new TrackingCedarExtensionActions();
 
     // Tracking the action to time and log
-    private static int cedarExtensionActionId = 0;
-    static HashMap<Integer, CedarExtensionAction> trackedAnnotations = new HashMap<>();
     // Make sure there is only one view created
     private CedarExtensionView() {
         init();
@@ -724,8 +717,9 @@ public class CedarExtensionView {
 //        loadAnnotation(imageFile);
     }
 
-    @Tracking(action = "Table Annotation Selected")
+   // @Tracking(action = "Table Annotation Selected")
     private void handleAnnotationTableSelection() {
+        CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Adding a Path Object");
         if (isHandlingPathObjectSelection)
             return;
         CedarAnnotation annotation = annotationTable.getSelectionModel().getSelectedItem();
@@ -738,10 +732,12 @@ public class CedarExtensionView {
         this.qupath.getViewer().centerROI(pathObject.getROI());
         // Enable the "Infer Annotation" button when class id = -1 (a flag for a new path object)
         this.inferAnnotationBtn.setDisable(annotation.getClassId() != -1);
+        trackAction(cedarExtensionAction, "Annotation Table Selected Item", annotation.toString());
     }
 
     //@Tracking(action = "Saving an Annotation")
     private void saveAnnotations() {
+        CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Saving an Annotation");
         // Should not save if it is disabled
         if (this.updateAnnotationBtn.isDisabled() || this.currentImageFile == null)
             return; // Do nothing
@@ -758,20 +754,21 @@ public class CedarExtensionView {
         } catch (IOException e) {
             logger.error("Cannot save the annotation: " + e.getMessage(), e);
         }
+        trackAction(cedarExtensionAction, "Saving annotation for", imageList.getSelectionModel().getSelectedItem().toString());
     }
 
-    // TODO: use for prototyping
-    @Tracking(action = "")
+   // @Tracking(action = "")
     private void backupAnnotations(File annoationFile) {
         if (!annoationFile.exists())
             return;
         // Change the file name to .json.bak
+        CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Backing up an Annotation");
         String backupFileName = annoationFile.getAbsolutePath() + ".bak";
         File backupFile = new File(backupFileName);
         if (backupFile.exists())
             backupFile.delete(); // Delete it
         annoationFile.renameTo(backupFile);
-        this.addPropertyToTracking(cedarExtensionActionId, backupFileName);
+        trackAction(cedarExtensionAction, "annotation for", backupFileName);
     }
 
     private File getImagesFolder(File folder) {
@@ -905,9 +902,12 @@ public class CedarExtensionView {
      * @param imageFile
      * @return
      */
-    @Tracking(action = "Loading an image")
+    //@Tracking(action = "Loading an image")
+    // Testing
     public boolean loadImage(File imageFile) {
         try {
+            // Creating an Object for tracking
+            CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Loading an Image");
             // Save the annotation first in case there is something changed there.
             saveAnnotations();
             logger.info("Loading image: " + imageFile.getAbsolutePath());
@@ -928,8 +928,9 @@ public class CedarExtensionView {
                 }
                 // If it is null, still record it.
                 this.pathObjectHierarchy = hierarchy;
-                this.addPropertyToTracking(cedarExtensionActionId, imageFile.getName());
             }
+            // Pass the action to be recorded when the method ends
+            trackAction(cedarExtensionAction, "Image File", imageFile.getAbsolutePath());
             return rtn;
         } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Image",
@@ -946,8 +947,10 @@ public class CedarExtensionView {
      * @param imageFile Note: the passed parameter is an image file, not its annotation file.
      * @return
      */
-    @Tracking(action = "Loading an annotation")
+   // @Tracking(action = "Loading an annotation")
     private boolean loadAnnotation(File imageFile) {
+        // Creating an Object for tracking
+        CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Loading an Annotation");
         File annotationFolder = getAnnotationsFolder(this.currentFolder);
         if (!annotationFolder.exists())
             return false; // Should not occur
@@ -969,6 +972,7 @@ public class CedarExtensionView {
             inferAnnotationBtn.setDisable(true);
             if (filterTF != null)
                 filterTF.clear();
+            trackAction(cedarExtensionAction, "Image File", imageFile.getAbsolutePath());
             return parseAnnotationFile(annotationFile);
         } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Annotation",
@@ -978,8 +982,10 @@ public class CedarExtensionView {
         }
     }
 
-   @Tracking(action = "Adding a Path Object")
+  // @Tracking(action = "Adding a Path Object")
     void addPathObjects(List<PathObject> pathObjects) {
+        // Creating an Object for tracking
+        CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Adding a Path Object");
         ImageData<BufferedImage> imageData = qupath.getImageData();
         changeFromObject = true;
         imageData.getHierarchy().addObjects(pathObjects);
@@ -1001,6 +1007,7 @@ public class CedarExtensionView {
             toBeSelected.add(selectedAnnotation.getPathObject());
         QP.selectObjects(toBeSelected);
         changeFromObject = false;
+        trackAction(cedarExtensionAction, "Path Objects", pathObjects.toString());
     }
 
     boolean parseAnnotationFile(File annotationFile) throws IOException {
@@ -1133,14 +1140,11 @@ public class CedarExtensionView {
         return this.TAB_NAME;
     }
 
-   public void addPropertyToTracking(int id, String property) {
-//        CedarExtensionAction cedarExtensionAction = trackedAnnotations.get(id);
-//        String action = cedarExtensionAction.getAction();
-//        cedarExtensionAction.setAction((action += property));
-   }
-
-   public static void addCedarAnnotationTracking(CedarExtensionAction cedarExtensionAction) {
-       trackedAnnotations.put(cedarExtensionActionId, cedarExtensionAction);
-       cedarExtensionActionId++;
+    public void trackAction(CedarExtensionAction cedarExtensionAction, String propertyName, String propertyValue) {
+        cedarExtensionAction.setEndTime(Long.toString(System.currentTimeMillis()));
+        cedarExtensionAction.setPropertyName(propertyName);
+        cedarExtensionAction.setPropertyValue(propertyValue);
+        trackingCedarExtensionActions.addCedarExtensionAction(cedarExtensionAction);
+        System.out.println("test");
    }
 }
