@@ -670,9 +670,12 @@ public class CedarExtensionView {
             return cell;
         });
         classCol.setOnEditCommit(event -> {
+            CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Changing Classification");
+            String previousClassName = event.getRowValue().getClassName();
             event.getRowValue().setClassName(event.getNewValue());
             this.annotationTable.refresh(); // TODO: Look for a method to refresh a cell only
             updateAnnotationBtn.setDisable(false);
+            trackAction(action, "Class Name", event.getNewValue(), previousClassName);
         });
         return classCol;
     }

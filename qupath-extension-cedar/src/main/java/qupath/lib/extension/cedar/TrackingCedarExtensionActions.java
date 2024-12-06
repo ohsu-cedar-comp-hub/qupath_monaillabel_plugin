@@ -6,6 +6,8 @@ import qupath.lib.extension.cedar.ActionLogging.CedarExtensionAction;
 
 import java.io.*;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 public class TrackingCedarExtensionActions {
@@ -73,18 +75,16 @@ public class TrackingCedarExtensionActions {
         File csvOutputFile = new File(Settings.localStoragePathProperty().getValue(), TRACKING_FILE_NAME);
         String line;
         int count = 0;
+        ArrayList<Integer> idValues = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(csvOutputFile))) {
             while ((line = br.readLine()) != null) {
-                String[] values = line.split(",");
-                if(count > 0)
-                    id = Integer.parseInt(line.split(",")[0]);
-                // Process the values here
-                for (String value : values) {
-                    System.out.print(value + " ");
-                }
-                System.out.println();
+                if(count > 0) // Skip the first line, the headers
+                    // The id is the first value
+                    idValues.add(Integer.parseInt(line.split(",")[0]));
                 count++;
             }
+            Collections.sort(idValues);
+            id = idValues.getLast();
         } catch (IOException e) {
             e.printStackTrace();
         }
