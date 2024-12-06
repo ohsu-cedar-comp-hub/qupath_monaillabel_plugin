@@ -1,47 +1,92 @@
 package qupath.lib.extension.cedar;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import qupath.lib.extension.cedar.ActionLogging.CedarExtensionAction;
 
-import java.io.File;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.time.LocalDateTime;
-import java.util.Collection;
-import java.util.HashMap;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TrackingCedarExtensionActions {
-    // TODO: make the filePathName configurable
-    String filePathName = "/Users/beaversd/IdeaProjects/qupath_monaillabel_plugin/qupath-extension-cedar/src/main/tracking/CedarExtensionLogging" + LocalDateTime.now() + ".csv";
-    int id = 0; // tracking the id to further annotate
-    HashMap<Integer, CedarExtensionAction> trackedAnnotations = new HashMap<>();
+    private static Logger logger = LoggerFactory.getLogger(TrackingCedarExtensionActions.class);
+    private static final String TRACKING_FILE_NAME = "tracking.csv";
+    private static final int MAX_ACTIONS_FOR_SAVING = 500;
+    private List<CedarExtensionAction> trackedAnnotations = new ArrayList<>();
+    private static TrackingCedarExtensionActions trackingCedarExtensionActions = null;
+    private int id = 0; // Simple id for annotations
 
-    public void addCedarExtensionAction(CedarExtensionAction cedarExtensionAction) {
-        trackedAnnotations.put(id, cedarExtensionAction);
-        try {
-            writeToFile();
-        } catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-        id++; // Simple incrementation
+    // private constructor
+    private TrackingCedarExtensionActions() {
+        readFile();
     }
 
+    public static TrackingCedarExtensionActions getTrackingCedarExtensionActions() {
+        if (trackingCedarExtensionActions == null)
+            trackingCedarExtensionActions = new TrackingCedarExtensionActions();
+        return trackingCedarExtensionActions;
+    }
 
-    private void writeToFile() throws IOException {
-        for(CedarExtensionAction cedarExtensionAction : trackedAnnotations.values()){
-            String data = String.join(",",
-                    cedarExtensionAction.getAction(),
-                    cedarExtensionAction.getStartTime(),
-                    cedarExtensionAction.getEndTime(),
-                    cedarExtensionAction.getPropertyName(),
-                    cedarExtensionAction.getPropertyValue());
-            // TODO: improve with a queue
-            File csvOutputFile = new File(filePathName);
-            try (FileWriter fileWriter = new FileWriter(csvOutputFile, true)) {
+    public CedarExtensionAction createAction(String actionName) {
+        return new CedarExtensionAction(id++, actionName);
+    }
 
-                fileWriter.write(data);
+    public void addCedarExtensionAction(String actionName) {
+        this.addCedarExtensionAction(new CedarExtensionAction(id++, actionName));
+    }
+
+    public void addCedarExtensionAction(CedarExtensionAction cedarExtensionAction) {
+        trackedAnnotations.add(cedarExtensionAction);
+        if (trackedAnnotations.size() >= MAX_ACTIONS_FOR_SAVING) {
+            try {
+                writeToFile();
+            } catch (IOException e) {
+                logger.error("addCedarExtensionAction: " + e.getMessage(), e);
             }
         }
+    }
+
+    public synchronized void writeToFile() throws IOException {
+        if (this.trackedAnnotations.size() == 0)
+            return;
+        File csvOutputFile = new File(Settings.localStoragePathProperty().getValue(), TRACKING_FILE_NAME);
+        boolean needHeader = false;
+        if (!csvOutputFile.exists()) {
+            csvOutputFile.createNewFile();
+            needHeader = true;
+        }
+        FileWriter fileWriter = new FileWriter(csvOutputFile, true);
+        PrintWriter printWriter = new PrintWriter(fileWriter);
+        if (needHeader) {
+            printWriter.println(CedarExtensionAction.createCSVHeader());
+        }
+        for (CedarExtensionAction cedarExtensionAction : trackedAnnotations) {
+            printWriter.println(cedarExtensionAction.toCSVString());
+        }
+        fileWriter.close();
+        printWriter.close();
         // clear the cache once the annotations have been tracked
         trackedAnnotations.clear();
+    }
+
+    private void readFile() {
+        File csvOutputFile = new File(Settings.localStoragePathProperty().getValue(), TRACKING_FILE_NAME);
+        String line;
+        int count = 0;
+        try (BufferedReader br = new BufferedReader(new FileReader(csvOutputFile))) {
+            while ((line = br.readLine()) != null) {
+                String[] values = line.split(",");
+                if(count > 0)
+                    id = Integer.parseInt(line.split(",")[0]);
+                // Process the values here
+                for (String value : values) {
+                    System.out.print(value + " ");
+                }
+                System.out.println();
+                count++;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 }

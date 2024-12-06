@@ -1,17 +1,48 @@
 package qupath.lib.extension.cedar.ActionLogging;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+
 public class CedarExtensionAction {
 
     private String action; //TODO: controlled vocabulary
-    // Could be controlled using reflection and getting all of the Method Names??
     private String propertyName;
-    private String propertyValue;
+    private String newPropertyValue;
+    private String oldPropertyValue;
     private String startTime;
     private String endTime;
+    private Integer id;
+    private String timeStamp;
 
-    public CedarExtensionAction(String action){
+    public static String createCSVHeader() {
+        return String.join(",", "id", "Action", "Start Time", "End Time", "Property Name",
+                "New Property Value", "Old Property Value", "Time Stamp");
+    }
+
+    public String toCSVString() {
+        return String.join(",",
+                getId(),
+                getAction(),
+                getStartTime(),
+                getEndTime(),
+                getPropertyName(),
+                getNewPropertyValue(),
+                getOldPropertyValue(),
+                timeStamp);
+    }
+
+    public String createTimeStamp() {
+        LocalDateTime now = LocalDateTime.now(); // Get current date and time
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        return now.format(formatter);
+    }
+
+    public CedarExtensionAction(int id, String action) {
         this.action = action;
+        this.id = id;
         this.startTime = Long.toString(System.currentTimeMillis());
+        this.timeStamp = this.createTimeStamp();
+
     }
 
     public String getAction() {
@@ -38,11 +69,27 @@ public class CedarExtensionAction {
         this.propertyName = propertyName;
     }
 
-    public String getPropertyValue() {
-        return propertyValue;
+    public String getNewPropertyValue() {
+        return newPropertyValue;
     }
 
-    public void setPropertyValue(String propertyValue) {
-        this.propertyValue = propertyValue;
+    public void setNewPropertyValue(String newPropertyValue) {
+        this.newPropertyValue = newPropertyValue;
+    }
+
+    public String getOldPropertyValue() {
+        return oldPropertyValue;
+    }
+
+    public void setOldPropertyValue(String oldPropertyValue) {
+        this.oldPropertyValue = oldPropertyValue;
+    }
+
+    public String getId() {
+        return id.toString();
+    }
+
+    public void setId(int id) {
+        this.id = id;
     }
 }

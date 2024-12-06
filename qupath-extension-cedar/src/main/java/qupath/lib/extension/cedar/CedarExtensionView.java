@@ -96,8 +96,6 @@ public class CedarExtensionView {
 
     private static CedarExtensionView view;
 
-    private TrackingCedarExtensionActions trackingCedarExtensionActions = new TrackingCedarExtensionActions();
-
     // Tracking the action to time and log
     // Make sure there is only one view created
     private CedarExtensionView() {
@@ -113,6 +111,15 @@ public class CedarExtensionView {
     public void setQupath(QuPathGUI qupath) {
         this.qupath = qupath;
         this.qupath.getStage().addEventHandler(WindowEvent.WINDOW_CLOSE_REQUEST, e -> saveAnnotations());
+        // Save the remaining annotations to be tracked when the window closes
+        this.qupath.getStage().addEventHandler(WindowEvent.WINDOW_CLOSE_REQUEST, e -> {
+            try {
+                TrackingCedarExtensionActions.getTrackingCedarExtensionActions().writeToFile();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
+
         pathListener = new PathObjectHierarchyListener() {
             @Override
             public void hierarchyChanged(PathObjectHierarchyEvent event) {
@@ -170,7 +177,9 @@ public class CedarExtensionView {
             List<CedarAnnotation> toBeRemoved = new ArrayList<>();
             for (CedarAnnotation annotation : annotationTable.getItems()) {
                 if (changedObjects.contains(annotation.getPathObject())) {
+                    CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Removing a Path Object");
                     toBeRemoved.add(annotation);
+                    trackAction(action, "Path Object", annotation.getPathObject().getDisplayedName());
                 }
             }
             if (toBeRemoved.size() > 0) {
@@ -184,6 +193,7 @@ public class CedarExtensionView {
                 return;
             List<CedarAnnotation> toBeAdded = new ArrayList<>();
             for (PathObject pathObject : changedObjects) {
+                CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Adding a Path Object");
                 // For some reason, the same PathObject is passed as ADDED multiple time
                 boolean existed = false;
                 for (CedarAnnotation annotation : annotationTable.getItems()) {
@@ -196,6 +206,7 @@ public class CedarExtensionView {
                     continue;
                 CedarAnnotation cedarAnnotation = this.createNewAnnotationForPathObject(pathObject);
                 toBeAdded.add(cedarAnnotation);
+                trackAction(action, "Added annotation", cedarAnnotation.getPathObject().getDisplayedName());
             }
             if (toBeAdded.size() > 0) {
                 ObservableList<CedarAnnotation> source = getTableSource();
@@ -216,6 +227,7 @@ public class CedarExtensionView {
             }
             List<CedarAnnotation> toBeAdded = new ArrayList<>();
             for (PathObject pathObject : currentObjects) {
+                CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Structure Change");
                 boolean exist = false;
                 for (CedarAnnotation annotation : source) {
                     if (annotation.getPathObject() == pathObject) {
@@ -227,6 +239,7 @@ public class CedarExtensionView {
                     CedarAnnotation cedarAnnotation = this.createNewAnnotationForPathObject(pathObject);
                     toBeAdded.add(cedarAnnotation);
                 }
+                trackAction(action, "Modified Annotation", pathObject.getDisplayedName());
             }
             if (toBeAdded.size() > 0 || toBeRemoved.size() > 0) {
                 source.removeAll(toBeRemoved);
@@ -243,8 +256,11 @@ public class CedarExtensionView {
             for (PathObject pathObject : changedObjects) {
                 for (CedarAnnotation annotation : source) {
                     if (annotation.getPathObject() == pathObject) {
+                        CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Changing Classification");
                         Integer id = CedarPathClassHandler.getHandler().getClassId(pathObject.getPathClass().getName());
                         annotation.setClassId(id);
+                        // TODO: confirm this returns the classification
+                        trackAction(action, "Classification id", pathObject.getClassifications().toString(), annotation.getPathObject().getClassifications().toString());
                     }
                 }
             }
@@ -254,6 +270,7 @@ public class CedarExtensionView {
     }
 
     private CedarAnnotation createNewAnnotationForPathObject(PathObject pathObject) {
+        CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Create New Annotation for Path Object");
         CedarAnnotation cedarAnnotation = new CedarAnnotation();
         cedarAnnotation.setPathObject(pathObject);
         if (pathObject.getPathClass() == null) {
@@ -261,6 +278,7 @@ public class CedarExtensionView {
             cedarAnnotation.setClassId(-1); // Use -1 as a flag for not labeled
             cedarAnnotation.setMetaData("Created in QuPath");
         }
+        trackAction(action, "Path Object", pathObject.getDisplayedName());
         return cedarAnnotation;
     }
 
@@ -717,9 +735,7 @@ public class CedarExtensionView {
 //        loadAnnotation(imageFile);
     }
 
-   // @Tracking(action = "Table Annotation Selected")
     private void handleAnnotationTableSelection() {
-        CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Adding a Path Object");
         if (isHandlingPathObjectSelection)
             return;
         CedarAnnotation annotation = annotationTable.getSelectionModel().getSelectedItem();
@@ -728,16 +744,16 @@ public class CedarExtensionView {
         PathObject pathObject = annotation.getPathObject();
         if (pathObject == null)
             return;
+        CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Adding a Path Object");
         QP.selectObjects(pathObject);
         this.qupath.getViewer().centerROI(pathObject.getROI());
         // Enable the "Infer Annotation" button when class id = -1 (a flag for a new path object)
         this.inferAnnotationBtn.setDisable(annotation.getClassId() != -1);
-        trackAction(cedarExtensionAction, "Annotation Table Selected Item", annotation.toString());
+        trackAction(action,"Annotation Table Selected Item", annotation.toString());
     }
 
-    //@Tracking(action = "Saving an Annotation")
     private void saveAnnotations() {
-        CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Saving an Annotation");
+        CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Saving an Annotation");
         // Should not save if it is disabled
         if (this.updateAnnotationBtn.isDisabled() || this.currentImageFile == null)
             return; // Do nothing
@@ -754,21 +770,20 @@ public class CedarExtensionView {
         } catch (IOException e) {
             logger.error("Cannot save the annotation: " + e.getMessage(), e);
         }
-        trackAction(cedarExtensionAction, "Saving annotation for", imageList.getSelectionModel().getSelectedItem().toString());
+        trackAction(action,"Saving annotation for", imageList.getSelectionModel().getSelectedItem().toString());
     }
 
-   // @Tracking(action = "")
     private void backupAnnotations(File annoationFile) {
         if (!annoationFile.exists())
             return;
         // Change the file name to .json.bak
-        CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Backing up an Annotation");
+        CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Backing up an Annotation");
         String backupFileName = annoationFile.getAbsolutePath() + ".bak";
         File backupFile = new File(backupFileName);
         if (backupFile.exists())
             backupFile.delete(); // Delete it
         annoationFile.renameTo(backupFile);
-        trackAction(cedarExtensionAction, "annotation for", backupFileName);
+        trackAction(action,"annotation for", backupFileName);
     }
 
     private File getImagesFolder(File folder) {
@@ -902,16 +917,13 @@ public class CedarExtensionView {
      * @param imageFile
      * @return
      */
-    //@Tracking(action = "Loading an image")
-    // Testing
     public boolean loadImage(File imageFile) {
         try {
-            // Creating an Object for tracking
-            CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Loading an Image");
             // Save the annotation first in case there is something changed there.
             saveAnnotations();
             logger.info("Loading image: " + imageFile.getAbsolutePath());
             this.currentImageFile = imageFile;
+            CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Load Image");
             boolean rtn = this.qupath.openImage(this.qupath.getViewer(), imageFile.getAbsolutePath());
             if (rtn) {
                 if (this.pathObjectHierarchy != null) {
@@ -930,7 +942,7 @@ public class CedarExtensionView {
                 this.pathObjectHierarchy = hierarchy;
             }
             // Pass the action to be recorded when the method ends
-            trackAction(cedarExtensionAction, "Image File", imageFile.getAbsolutePath());
+            trackAction(action,"Image File", imageFile.getAbsolutePath());
             return rtn;
         } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Image",
@@ -947,10 +959,9 @@ public class CedarExtensionView {
      * @param imageFile Note: the passed parameter is an image file, not its annotation file.
      * @return
      */
-   // @Tracking(action = "Loading an annotation")
     private boolean loadAnnotation(File imageFile) {
         // Creating an Object for tracking
-        CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Loading an Annotation");
+        CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Loading an annotation");
         File annotationFolder = getAnnotationsFolder(this.currentFolder);
         if (!annotationFolder.exists())
             return false; // Should not occur
@@ -972,7 +983,7 @@ public class CedarExtensionView {
             inferAnnotationBtn.setDisable(true);
             if (filterTF != null)
                 filterTF.clear();
-            trackAction(cedarExtensionAction, "Image File", imageFile.getAbsolutePath());
+            trackAction(action,"Image File", imageFile.getAbsolutePath());
             return parseAnnotationFile(annotationFile);
         } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Annotation",
@@ -982,10 +993,9 @@ public class CedarExtensionView {
         }
     }
 
-  // @Tracking(action = "Adding a Path Object")
     void addPathObjects(List<PathObject> pathObjects) {
         // Creating an Object for tracking
-        CedarExtensionAction cedarExtensionAction = new CedarExtensionAction("Adding a Path Object");
+        CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Adding a Path Object");
         ImageData<BufferedImage> imageData = qupath.getImageData();
         changeFromObject = true;
         imageData.getHierarchy().addObjects(pathObjects);
@@ -1007,7 +1017,7 @@ public class CedarExtensionView {
             toBeSelected.add(selectedAnnotation.getPathObject());
         QP.selectObjects(toBeSelected);
         changeFromObject = false;
-        trackAction(cedarExtensionAction, "Path Objects", pathObjects.toString());
+        trackAction(action,"Path Objects", pathObjects.toString());
     }
 
     boolean parseAnnotationFile(File annotationFile) throws IOException {
@@ -1140,11 +1150,16 @@ public class CedarExtensionView {
         return this.TAB_NAME;
     }
 
-    public void trackAction(CedarExtensionAction cedarExtensionAction, String propertyName, String propertyValue) {
+    private void trackAction(CedarExtensionAction cedarExtensionAction, String propertyName, String newPropertyValue) {
         cedarExtensionAction.setEndTime(Long.toString(System.currentTimeMillis()));
         cedarExtensionAction.setPropertyName(propertyName);
-        cedarExtensionAction.setPropertyValue(propertyValue);
-        trackingCedarExtensionActions.addCedarExtensionAction(cedarExtensionAction);
-        System.out.println("test");
+        cedarExtensionAction.setNewPropertyValue(newPropertyValue);
+        TrackingCedarExtensionActions.getTrackingCedarExtensionActions().addCedarExtensionAction(cedarExtensionAction);
+   }
+
+
+   private void trackAction(CedarExtensionAction cedarExtensionAction, String propertyName, String newPropertyValue, String oldPropertyValue){
+       cedarExtensionAction.setOldPropertyValue(oldPropertyValue);
+       trackAction(cedarExtensionAction, propertyName, newPropertyValue);
    }
 }
