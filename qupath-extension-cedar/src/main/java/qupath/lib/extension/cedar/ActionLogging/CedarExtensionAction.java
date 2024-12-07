@@ -8,7 +8,7 @@ public class CedarExtensionAction {
     private String action; //TODO: controlled vocabulary
     private String propertyName;
     private String newPropertyValue;
-    private String oldPropertyValue;
+    private String oldPropertyValue = "";
     private String startTime;
     private String endTime;
     private Integer id;
@@ -16,7 +16,7 @@ public class CedarExtensionAction {
 
     public static String createCSVHeader() {
         return String.join(",", "id", "Action", "Start Time", "End Time", "Property Name",
-                "New Property Value", "Old Property Value", "Time Stamp");
+                "New Property Value", "Old Property Value", "Duration", "Time Stamp");
     }
 
     public String toCSVString() {
@@ -89,7 +89,9 @@ public class CedarExtensionAction {
         return id.toString();
     }
 
-    public void setId(int id) {
-        this.id = id;
+    public String calculateDuration(){
+       int startTime = Integer.parseInt(getStartTime());
+       int endTime = Integer.parseInt(getEndTime());
+       return Integer.toString(endTime - startTime);
     }
 }

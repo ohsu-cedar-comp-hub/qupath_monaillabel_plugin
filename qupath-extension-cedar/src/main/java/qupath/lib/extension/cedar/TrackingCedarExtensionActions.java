@@ -6,7 +6,6 @@ import qupath.lib.extension.cedar.ActionLogging.CedarExtensionAction;
 
 import java.io.*;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 
@@ -20,7 +19,7 @@ public class TrackingCedarExtensionActions {
 
     // private constructor
     private TrackingCedarExtensionActions() {
-        readFile();
+        findMaxId();
     }
 
     public static TrackingCedarExtensionActions getTrackingCedarExtensionActions() {
@@ -71,20 +70,17 @@ public class TrackingCedarExtensionActions {
         trackedAnnotations.clear();
     }
 
-    private void readFile() {
+    private void findMaxId() {
         File csvOutputFile = new File(Settings.localStoragePathProperty().getValue(), TRACKING_FILE_NAME);
         String line;
-        int count = 0;
-        ArrayList<Integer> idValues = new ArrayList<>();
         try (BufferedReader br = new BufferedReader(new FileReader(csvOutputFile))) {
+            br.readLine(); // Skip the first line, the headers
             while ((line = br.readLine()) != null) {
-                if(count > 0) // Skip the first line, the headers
-                    // The id is the first value
-                    idValues.add(Integer.parseInt(line.split(",")[0]));
-                count++;
+                // The id is the first value in the row
+                int tempId = Integer.parseInt(line.split(",")[0]);
+                if(tempId > id)
+                    id = tempId;
             }
-            Collections.sort(idValues);
-            id = idValues.getLast();
         } catch (IOException e) {
             e.printStackTrace();
         }
