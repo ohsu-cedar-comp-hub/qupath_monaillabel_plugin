@@ -153,6 +153,7 @@ public class CedarExtensionView {
                 .filter(annotation -> annotation.getPathObject().equals(pathObjectSelected))
                 .findFirst()
                 .ifPresent(annotation -> {
+                    CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Annotation Selection");
                     this.annotationTable.getSelectionModel().select(annotation);
                     // For some unknown reason, have to call the following method
                     // in order to switch the mouse click selection to this table.
@@ -162,6 +163,7 @@ public class CedarExtensionView {
                     // Update the button manually
                     this.inferAnnotationBtn.setDisable(annotation.getClassId() != -1);
                     annotationTable.scrollTo(annotation);
+                    trackAction(action, "Annotation", pathObjectSelected.getDisplayedName());
                 });
         this.isHandlingPathObjectSelection = false;
     }
@@ -670,9 +672,12 @@ public class CedarExtensionView {
             return cell;
         });
         classCol.setOnEditCommit(event -> {
+            CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Changing Classification");
+            String previousClassName = event.getRowValue().getClassName();
             event.getRowValue().setClassName(event.getNewValue());
             this.annotationTable.refresh(); // TODO: Look for a method to refresh a cell only
             updateAnnotationBtn.setDisable(false);
+            trackAction(action, "Class Name", event.getNewValue(), previousClassName);
         });
         return classCol;
     }
@@ -744,12 +749,12 @@ public class CedarExtensionView {
         PathObject pathObject = annotation.getPathObject();
         if (pathObject == null)
             return;
-        CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Adding a Path Object");
+        CedarExtensionAction action = TrackingCedarExtensionActions.getTrackingCedarExtensionActions().createAction("Annotation Table Selection");
         QP.selectObjects(pathObject);
         this.qupath.getViewer().centerROI(pathObject.getROI());
         // Enable the "Infer Annotation" button when class id = -1 (a flag for a new path object)
         this.inferAnnotationBtn.setDisable(annotation.getClassId() != -1);
-        trackAction(action,"Annotation Table Selected Item", annotation.toString());
+        trackAction(action,"Selected Item", annotation.toString());
     }
 
     private void saveAnnotations() {
