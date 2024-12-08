@@ -84,7 +84,7 @@ public class ActionTrackingManager {
             String line = br.readLine();
             int maxId = 0;
             while ((line = br.readLine()) != null) {
-                int tmpId = Integer.parseInt(line.split(",")[0]);
+                int tmpId = Integer.parseInt(line.split("\t")[0]);
                 if (tmpId > maxId)
                     maxId = tmpId;
             }
