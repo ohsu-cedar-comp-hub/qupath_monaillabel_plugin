@@ -1,33 +1,45 @@
-package qupath.lib.extension.cedar.ActionLogging;
+package qupath.lib.extension.cedar;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+/**
+ * This class is created to model the user actions so that we can track them to measure the efficiency of human annoation
+ * of the segemnetation results.
+ */
 public class CedarExtensionAction {
 
     private String action; //TODO: controlled vocabulary
     private String propertyName;
     private String newPropertyValue;
-    private String oldPropertyValue = "";
-    private String startTime;
-    private String endTime;
+    private String oldPropertyValue;
+    private long startTime;
+    private long endTime;
     private Integer id;
     private String timeStamp;
 
     public static String createCSVHeader() {
-        return String.join(",", "id", "Action", "Start Time", "End Time", "Property Name",
-                "New Property Value", "Old Property Value", "Duration", "Time Stamp");
+        return String.join("\t", "id",
+                "Action",
+                "Start Time (ms)",
+                "End Time (ms)",
+                "Duration (ms)",
+                "Property Name",
+                "New Property Value",
+                "Old Property Value",
+                "Time Stamp");
     }
 
     public String toCSVString() {
-        return String.join(",",
+        return String.join("\t",
                 getId(),
                 getAction(),
-                getStartTime(),
-                getEndTime(),
+                getStartTime() + "",
+                getEndTime() + "",
+                getDuration() + "",
                 getPropertyName(),
-                getNewPropertyValue(),
-                getOldPropertyValue(),
+                getNewPropertyValue() == null ? "" : getNewPropertyValue(),
+                getOldPropertyValue() == null ? "" : getOldPropertyValue(),
                 timeStamp);
     }
 
@@ -40,24 +52,23 @@ public class CedarExtensionAction {
     public CedarExtensionAction(int id, String action) {
         this.action = action;
         this.id = id;
-        this.startTime = Long.toString(System.currentTimeMillis());
+        this.startTime = System.currentTimeMillis();
         this.timeStamp = this.createTimeStamp();
-
     }
 
     public String getAction() {
         return action;
     }
 
-    public String getEndTime() {
+    public long getEndTime() {
         return endTime;
     }
 
-    public void setEndTime(String endTime) {
+    public void setEndTime(long endTime) {
         this.endTime = endTime;
     }
 
-    public String getStartTime() {
+    public long getStartTime() {
         return startTime;
     }
 
@@ -89,9 +100,7 @@ public class CedarExtensionAction {
         return id.toString();
     }
 
-    public String calculateDuration(){
-       int startTime = Integer.parseInt(getStartTime());
-       int endTime = Integer.parseInt(getEndTime());
-       return Integer.toString(endTime - startTime);
+    public long getDuration() {
+        return endTime - startTime;
     }
 }

@@ -23,6 +23,10 @@ public class CedarAnnotation {
         this.pathObject = pathObject;
     }
 
+    public String toTrackingString() {
+        return getPathObject().getID() + ": " + getClassId() + "," + getClassName() + "," + getAnnotationStyle();
+    }
+
     public Integer getClassId() {
         if (pathObject == null || pathObject.getMetadata() == null)
             return -1;

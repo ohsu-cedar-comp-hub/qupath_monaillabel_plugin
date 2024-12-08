@@ -7,5 +7,6 @@ public enum AnnotationType {
 
     auto,
     auto_checked,
+    auto_edited,
     manual
 }
