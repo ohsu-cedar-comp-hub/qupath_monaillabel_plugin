@@ -815,14 +815,14 @@ public class CedarExtensionView {
     private void backupAnnotations(File annoationFile) {
         if (!annoationFile.exists())
             return;
+        // Don't track the backup action. It is a system automatic action
+        // No user involved.
         // Change the file name to .json.bak
-        CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Backup");
         String backupFileName = annoationFile.getAbsolutePath() + ".bak";
         File backupFile = new File(backupFileName);
         if (backupFile.exists())
             backupFile.delete(); // Delete it
         annoationFile.renameTo(backupFile);
-        trackAction(action,"annotation for", backupFileName);
     }
 
     private File getImagesFolder(File folder) {
@@ -1033,9 +1033,9 @@ public class CedarExtensionView {
         }
     }
 
+    // For the time being, don't track this action since it is used by infer_annoation,
+    // which is tracked.
     void addPathObjects(List<PathObject> pathObjects) {
-        // Creating an Object for tracking
-        CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Adding a Path Object");
         ImageData<BufferedImage> imageData = qupath.getImageData();
         changeFromObject = true;
         imageData.getHierarchy().addObjects(pathObjects);
@@ -1057,7 +1057,6 @@ public class CedarExtensionView {
             toBeSelected.add(selectedAnnotation.getPathObject());
         QP.selectObjects(toBeSelected);
         changeFromObject = false;
-        trackAction(action,"Path Objects", pathObjects.toString());
     }
 
     boolean parseAnnotationFile(File annotationFile) throws IOException {
