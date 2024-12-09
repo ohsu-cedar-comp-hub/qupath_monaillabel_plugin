@@ -34,6 +34,7 @@ public class ActionTrackingManager {
 
     public synchronized void trackAction(CedarExtensionAction cedarExtensionAction) {
         trackedActions.add(cedarExtensionAction);
+//        System.out.println(cedarExtensionAction.toTSVString());
         if (trackedActions.size() >= MAX_ACTIONS_FOR_SAVING) {
             // If multiple thread is calling this, there may be more than one thread created.
             // However, since we are using a thread-safe list and the method is synchronized,
@@ -59,7 +60,7 @@ public class ActionTrackingManager {
                 printWriter.println(CedarExtensionAction.createCSVHeader());
             }
             for (CedarExtensionAction cedarExtensionAction : trackedActions) {
-                printWriter.println(cedarExtensionAction.toCSVString());
+                printWriter.println(cedarExtensionAction.toTSVString());
             }
             fileWriter.close();
             printWriter.close();

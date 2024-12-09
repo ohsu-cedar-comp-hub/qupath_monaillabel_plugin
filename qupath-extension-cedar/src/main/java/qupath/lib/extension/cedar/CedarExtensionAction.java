@@ -30,7 +30,7 @@ public class CedarExtensionAction {
                 "Time Stamp");
     }
 
-    public String toCSVString() {
+    public String toTSVString() {
         return String.join("\t",
                 getId(),
                 getAction(),

@@ -32,6 +32,7 @@ import org.slf4j.LoggerFactory;
 import qupath.fx.dialogs.Dialogs;
 import qupath.lib.geom.Point2;
 import qupath.lib.gui.QuPathGUI;
+import qupath.lib.gui.viewer.tools.handlers.MoveToolEventHandler;
 import qupath.lib.images.ImageData;
 import qupath.lib.io.PathIO;
 import qupath.lib.objects.PathObject;
@@ -149,7 +150,7 @@ public class CedarExtensionView {
                 .filter(annotation -> annotation.getPathObject().equals(pathObjectSelected))
                 .findFirst()
                 .ifPresent(annotation -> {
-                    CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Selection");
+                    CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Selection in Image");
                     this.annotationTable.getSelectionModel().select(annotation);
                     // For some unknown reason, have to call the following method
                     // in order to switch the mouse click selection to this table.
@@ -159,13 +160,31 @@ public class CedarExtensionView {
                     // Update the button manually
                     this.inferAnnotationBtn.setDisable(annotation.getClassId() != -1);
                     annotationTable.scrollTo(annotation);
-                    trackAction(action, "Annotation", pathObjectSelected.getDisplayedName());
+                    trackAction(action, "Selected Item", annotation.toTrackingString());
                 });
         this.isHandlingPathObjectSelection = false;
     }
 
+    private void trackObjectMoveEvent(PathObjectHierarchyEvent e) {
+        if (!(e.getSource() instanceof MoveToolEventHandler) || !e.isChanging())
+            return;
+        List<PathObject> pathObjects = e.getChangedObjects();
+        if (pathObjects.size() == 1) {
+            PathObject pathObject = pathObjects.get(0);
+            CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Moving");
+            String text = pathObject.getID() + ": " + pathObject.getPathClass().getName();
+            trackAction(action, "Annotation", text);
+        }
+        else if (pathObjects.size() > 1){
+            // Just add a tracking
+            CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Moving");
+            String text = "Moving " + pathObjects.size() + " annotations";
+            trackAction(action, "Annotation", text);
+        }
+    }
 
     private void handlePathObjectChangeEvent(PathObjectHierarchyEvent event) {
+        trackObjectMoveEvent(event);
         if (changeFromObject)
             return; // Changes from this object
         if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.REMOVED) {
@@ -175,9 +194,9 @@ public class CedarExtensionView {
             List<CedarAnnotation> toBeRemoved = new ArrayList<>();
             for (CedarAnnotation annotation : annotationTable.getItems()) {
                 if (changedObjects.contains(annotation.getPathObject())) {
-                    CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Removing a Path Object");
+                    CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Deletion");
                     toBeRemoved.add(annotation);
-                    trackAction(action, "Path Object", annotation.getPathObject().getDisplayedName());
+                    trackAction(action, "Annotation", annotation.toTrackingString());
                 }
             }
             if (toBeRemoved.size() > 0) {
@@ -191,7 +210,7 @@ public class CedarExtensionView {
                 return;
             List<CedarAnnotation> toBeAdded = new ArrayList<>();
             for (PathObject pathObject : changedObjects) {
-                CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Adding a Path Object");
+                CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Creation");
                 // For some reason, the same PathObject is passed as ADDED multiple time
                 boolean existed = false;
                 for (CedarAnnotation annotation : annotationTable.getItems()) {
@@ -204,7 +223,7 @@ public class CedarExtensionView {
                     continue;
                 CedarAnnotation cedarAnnotation = this.createNewAnnotationForPathObject(pathObject);
                 toBeAdded.add(cedarAnnotation);
-                trackAction(action, "Added annotation", cedarAnnotation.getPathObject().getDisplayedName());
+                trackAction(action, "Annotation", cedarAnnotation.toTrackingString());
             }
             if (toBeAdded.size() > 0) {
                 ObservableList<CedarAnnotation> source = getTableSource();
@@ -225,7 +244,6 @@ public class CedarExtensionView {
             }
             List<CedarAnnotation> toBeAdded = new ArrayList<>();
             for (PathObject pathObject : currentObjects) {
-                CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Structure Change");
                 boolean exist = false;
                 for (CedarAnnotation annotation : source) {
                     if (annotation.getPathObject() == pathObject) {
@@ -237,11 +255,12 @@ public class CedarExtensionView {
                     CedarAnnotation cedarAnnotation = this.createNewAnnotationForPathObject(pathObject);
                     toBeAdded.add(cedarAnnotation);
                 }
-                trackAction(action, "Modified Annotation", pathObject.getDisplayedName());
             }
             if (toBeAdded.size() > 0 || toBeRemoved.size() > 0) {
                 source.removeAll(toBeRemoved);
                 source.addAll(toBeAdded);
+                CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Structure Editing");
+                trackAction(action, "Annotations", "Removed: " + toBeRemoved.size() + "; Added: " + toBeAdded.size());
             }
         }
         else if (event.getEventType() == PathObjectHierarchyEvent.HierarchyEventType.CHANGE_CLASSIFICATION) {
@@ -254,11 +273,15 @@ public class CedarExtensionView {
             for (PathObject pathObject : changedObjects) {
                 for (CedarAnnotation annotation : source) {
                     if (annotation.getPathObject() == pathObject) {
-                        CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Changing Classification");
+                        CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Classification Change in Image");
+                        // Id is still old. Using this we can get the old class name
+                        String oldValue = CedarPathClassHandler.getHandler().getPathClass(annotation.getClassId()).getName();
                         Integer id = CedarPathClassHandler.getHandler().getClassId(pathObject.getPathClass().getName());
                         annotation.setClassId(id);
-                        // TODO: confirm this returns the classification
-                        trackAction(action, "Classification id", pathObject.getClassifications().toString(), annotation.getPathObject().getClassifications().toString());
+                        String newValue = annotation.getClassName();
+                        trackAction(action, "Classification",
+                                newValue,
+                                oldValue);
                     }
                 }
             }
@@ -268,7 +291,6 @@ public class CedarExtensionView {
     }
 
     private CedarAnnotation createNewAnnotationForPathObject(PathObject pathObject) {
-        CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Create New Annotation for Path Object");
         CedarAnnotation cedarAnnotation = new CedarAnnotation();
         cedarAnnotation.setPathObject(pathObject);
         if (pathObject.getPathClass() == null) {
@@ -276,7 +298,6 @@ public class CedarExtensionView {
             cedarAnnotation.setClassId(-1); // Use -1 as a flag for not labeled
             cedarAnnotation.setMetaData("Created in QuPath");
         }
-        trackAction(action, "Path Object", pathObject.getDisplayedName());
         return cedarAnnotation;
     }
 
@@ -361,6 +382,7 @@ public class CedarExtensionView {
     }
 
     private void inferAnnotations() {
+        CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Inference");
         File imageFile = imageList.getSelectionModel().getSelectedItem();
         File annotationsFolder = getAnnotationsFolder(currentFolder);
         // Check if this is for a ROI
@@ -369,6 +391,7 @@ public class CedarExtensionView {
         if (annotation != null && annotation.getPathObject() != null)
             roi = annotation.getPathObject().getROI();
         new AnnotationInferrer().infer(roi, imageFile, annotationsFolder, this);
+        trackAction(action, "Annotations", "Inference");
     }
 
     private HBox createAnimationPane() {
@@ -573,15 +596,25 @@ public class CedarExtensionView {
         TableColumn<CedarAnnotation, AnnotationType> annotationStyleCol = createAnnotationTypeColumn("type", // Make the name simple
                 "annotationStyle");
         annotationStyleCol.setOnEditCommit(event -> {
+            AnnotationType oldValue = event.getOldValue();
             event.getRowValue().setAnnotationStyle(event.getNewValue());
             updateAnnotationBtn.setDisable(false);
+            CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Editing");
+            trackAction(action, "type: " + event.getRowValue().getPathObject().getID(),
+                    event.getNewValue() + "", oldValue + "");
         });
 
         TableColumn<CedarAnnotation, String> metaDataSol = createTableColumn("meta data",
                 "metaData", false);
         metaDataSol.setOnEditCommit(event -> {
+            String oldValue = event.getOldValue();
             event.getRowValue().setMetaData(event.getNewValue());
             updateAnnotationBtn.setDisable(false);
+            // Note: This track has not really got the duration of this editing!!!
+            // To get the duration, we may need to do a much complicated tracking to create object-level action.
+            CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Editing");
+            trackAction(action, "meta data: " + event.getRowValue().getPathObject().getID(),
+                    event.getNewValue(), oldValue);
         });
 
         annotationTable.getColumns().addAll(classIdCol, classCol, annotationStyleCol, metaDataSol);
@@ -661,13 +694,17 @@ public class CedarExtensionView {
             return cell;
         });
         classCol.setOnEditCommit(event -> {
-            CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Changing Classification");
-            String previousClassName = event.getRowValue().getClassName();
-            event.getRowValue().setClassName(event.getNewValue());
-            event.getRowValue().setAnnotationStyle(AnnotationType.auto_edited);
+            CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Editing");
+            CedarAnnotation annotation = event.getRowValue();
+            String previousClassName = annotation.getClassName();
+            annotation.setClassName(event.getNewValue());
+            annotation.setAnnotationStyle(AnnotationType.auto_edited);
             this.annotationTable.refresh(); // TODO: Look for a method to refresh a cell only
             updateAnnotationBtn.setDisable(false);
-            trackAction(action, "Class Name", event.getNewValue(), previousClassName);
+            trackAction(action,
+                    "Class Name: " + annotation.getPathObject().getID(),
+                    event.getNewValue(),
+                    previousClassName);
         });
         return classCol;
     }
@@ -703,13 +740,19 @@ public class CedarExtensionView {
             return cell;
         });
         col.setOnEditCommit(event -> {
+            CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Editing");
             CedarAnnotation annotation = event.getRowValue();
+            Integer oldId = annotation.getClassId();
             annotation.setClassId(event.getNewValue());
             // Reset the type to manual
             annotation.setAnnotationStyle(AnnotationType.auto_edited);
             // This is not efficient. Use it for the time being to synchronize the whole row
             annotationTable.refresh();
             updateAnnotationBtn.setDisable(false);
+            trackAction(action,
+                    "class id: " + annotation.getPathObject().getID(),
+                    annotation.getClassId() + "",
+                    oldId + "");
         });
         return col;
     }
@@ -773,7 +816,7 @@ public class CedarExtensionView {
         if (!annoationFile.exists())
             return;
         // Change the file name to .json.bak
-        CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Backing up an Annotation");
+        CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Backup");
         String backupFileName = annoationFile.getAbsolutePath() + ".bak";
         File backupFile = new File(backupFileName);
         if (backupFile.exists())
@@ -919,7 +962,7 @@ public class CedarExtensionView {
             saveAnnotations();
             logger.info("Loading image: " + imageFile.getAbsolutePath());
             this.currentImageFile = imageFile;
-            CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Load Image");
+            CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Image Loading");
             boolean rtn = this.qupath.openImage(this.qupath.getViewer(), imageFile.getAbsolutePath());
             if (rtn) {
                 if (this.pathObjectHierarchy != null) {
@@ -957,7 +1000,7 @@ public class CedarExtensionView {
      */
     private boolean loadAnnotation(File imageFile) {
         // Creating an Object for tracking
-        CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Loading an annotation");
+        CedarExtensionAction action = ActionTrackingManager.getManager().createAction("Annotation Loading");
         File annotationFolder = getAnnotationsFolder(this.currentFolder);
         if (!annotationFolder.exists())
             return false; // Should not occur
@@ -979,8 +1022,9 @@ public class CedarExtensionView {
             inferAnnotationBtn.setDisable(true);
             if (filterTF != null)
                 filterTF.clear();
-            trackAction(action,"Image File", imageFile.getAbsolutePath());
-            return parseAnnotationFile(annotationFile);
+            boolean rtn = parseAnnotationFile(annotationFile);
+            trackAction(action,"Annotation File", annotationFile.getAbsolutePath());
+            return rtn;
         } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Annotation",
                     "Cannot open annotation for: " + imageFile.getName());
