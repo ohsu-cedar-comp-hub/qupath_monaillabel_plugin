@@ -279,7 +279,8 @@ public class CedarExtensionView {
                         Integer id = CedarPathClassHandler.getHandler().getClassId(pathObject.getPathClass().getName());
                         annotation.setClassId(id);
                         String newValue = annotation.getClassName();
-                        trackAction(action, "Classification",
+                        trackAction(action,
+                                annotation.toTrackingString(),
                                 newValue,
                                 oldValue);
                     }
@@ -301,7 +302,7 @@ public class CedarExtensionView {
         return cedarAnnotation;
     }
 
-    private ObservableList<CedarAnnotation> getTableSource() {
+    public ObservableList<CedarAnnotation> getTableSource() {
         SortedList<CedarAnnotation> sortedList = (SortedList<CedarAnnotation>) annotationTable.getItems();
         FilteredList<CedarAnnotation> filteredList = (FilteredList<CedarAnnotation>) sortedList.getSource();
         return (ObservableList<CedarAnnotation>) filteredList.getSource();
@@ -390,8 +391,9 @@ public class CedarExtensionView {
         CedarAnnotation annotation = annotationTable.getSelectionModel().getSelectedItem();
         if (annotation != null && annotation.getPathObject() != null)
             roi = annotation.getPathObject().getROI();
-        new AnnotationInferrer().infer(roi, imageFile, annotationsFolder, this);
-        trackAction(action, "Annotations", "Inference");
+        AnnotationInferrer inferrer = new AnnotationInferrer();
+        inferrer.setTrackAction(action);
+        inferrer.infer(roi, imageFile, annotationsFolder, this);
     }
 
     private HBox createAnimationPane() {
@@ -1189,7 +1191,7 @@ public class CedarExtensionView {
         return this.TAB_NAME;
     }
 
-    private void trackAction(CedarExtensionAction cedarExtensionAction,
+    void trackAction(CedarExtensionAction cedarExtensionAction,
                              String propertyName,
                              String newPropertyValue) {
         trackAction(cedarExtensionAction,

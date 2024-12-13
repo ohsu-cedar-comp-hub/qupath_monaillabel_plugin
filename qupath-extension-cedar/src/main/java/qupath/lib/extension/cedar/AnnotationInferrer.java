@@ -49,8 +49,14 @@ public class AnnotationInferrer {
     // This is hard-coded and will be updated when more models are available
     private final String MODEL = "segmentation_tissue";
     private final Logger logger = LoggerFactory.getLogger((AnnotationInferrer.class));
+    // Used to track the inference action
+    private CedarExtensionAction trackAction;
 
     public AnnotationInferrer() {
+    }
+
+    public void setTrackAction(CedarExtensionAction action) {
+        this.trackAction = action;
     }
 
     public void infer(ROI roi, File imageFile, File annotationFolder, CedarExtensionView extension) {
@@ -141,6 +147,9 @@ public class AnnotationInferrer {
                 List<PathObject> pathObjects = adjustAnnotationForROI(response, roi);
                 // Directly add to the table. No need to save.
                 extension.addPathObjects(pathObjects);
+                if (this.trackAction != null) {
+                    extension.trackAction(trackAction, "Inference", "Added: " + pathObjects.size());
+                }
             }
             else {
                 // Save the file
@@ -154,6 +163,10 @@ public class AnnotationInferrer {
                 fileWriter.flush();
                 fileWriter.close();
                 extension.parseAnnotationFile(annotationFile);
+                if (this.trackAction != null) {
+                    List<CedarAnnotation> annotations = extension.getTableSource();
+                    extension.trackAction(trackAction, "Inference", "Added: " + annotations.size());
+                }
             }
         }
         catch(Exception e) {
