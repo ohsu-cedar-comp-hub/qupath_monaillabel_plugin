@@ -278,6 +278,7 @@ public class CedarExtensionView {
                         String oldValue = CedarPathClassHandler.getHandler().getPathClass(annotation.getClassId()).getName();
                         Integer id = CedarPathClassHandler.getHandler().getClassId(pathObject.getPathClass().getName());
                         annotation.setClassId(id);
+                        annotation.setAnnotationStyle(AnnotationType.auto_edited);
                         String newValue = annotation.getClassName();
                         trackAction(action,
                                 annotation.toTrackingString(),
