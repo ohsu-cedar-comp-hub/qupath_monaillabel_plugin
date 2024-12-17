@@ -50,6 +50,7 @@ import qupath.lib.scripting.QP;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Predicate;
@@ -131,6 +132,14 @@ public class CedarExtensionView {
                 handlePathObjectSelectionEvent(pathObjectSelected);
             }
         };
+
+        new Settings().addProperties(qupath);
+
+        Settings.ftuIDClassFileName().addListener((observable, oldValue, newValue) -> {
+            logger.info("Change the FTU class id file: " + newValue);
+            CedarPathClassHandler.getHandler().loadClassIdConfig();
+            CedarPathClassHandler.getHandler().setPathClasses(this.qupath);
+        });
     }
 
     private void handlePathObjectSelectionEvent(PathObject pathObjectSelected) {

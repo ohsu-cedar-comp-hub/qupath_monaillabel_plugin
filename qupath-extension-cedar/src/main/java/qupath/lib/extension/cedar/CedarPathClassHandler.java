@@ -25,32 +25,51 @@ public class CedarPathClassHandler {
     private Map<String, Integer> clsName2id = new HashMap<>();
 
     private CedarPathClassHandler() {
-        // Load the class definition from a file
-        try (InputStream input = getClass().getClassLoader().getResourceAsStream("prostate_cancer_path_classes.txt")) {
-            if (input == null) {
-                logger.error("Cannot find file: prostate_cancer_path_classes.txt");
-                return;
+        this.loadClassIdConfig();
+    }
+
+    public void loadClassIdConfig() {
+        // Check if the file is setting
+        String ftuFile = Settings.ftuIDClassFileName() == null ? null : Settings.ftuIDClassFileName().getValue();
+        try {
+            InputStream input = null;
+            if (ftuFile.trim().length() > 0) {
+                File file = new File(Settings.localStoragePathProperty().getValue(), ftuFile.trim());
+                input = new FileInputStream(file);
+            } else {
+                input = getClass().getClassLoader().getResourceAsStream("prostate_cancer_path_classes.txt");
             }
-            BufferedReader br = new BufferedReader(new InputStreamReader(input));
-            // Bypasss the first line, which is head
-            String line = br.readLine();
-            while ((line = br.readLine()) != null) {
-                if (line.trim().length() == 0)
-                    continue;
-                String[] tokens = line.split("\t");
-                String[] colorText = tokens[2].split(",");
-                Integer color = ColorTools.packRGB(Integer.parseInt(colorText[0]),
-                        Integer.parseInt(colorText[1]),
-                        Integer.parseInt(colorText[2]));
-                PathClass cls = PathClass.fromString(tokens[1], color);
-                id2cls.put(Integer.parseInt(tokens[0]), cls);
-            }
-            // reverse the map
-            id2cls.forEach((id, cls) -> clsName2id.put(cls.getName(), id));
+            loadClassIdFile(input);
         }
         catch (IOException ex) {
             logger.error("Error in CedarPathClassHandler(): " + ex.getMessage(), ex);
         }
+    }
+
+    private void loadClassIdFile(InputStream input) throws IOException {
+        if (input == null) {
+            logger.error("Cannot find file: prostate_cancer_path_classes.txt");
+            return;
+        }
+        id2cls.clear();
+        clsName2id.clear();
+        BufferedReader br = new BufferedReader(new InputStreamReader(input));
+        // Bypasss the first line, which is head
+        String line = br.readLine();
+        while ((line = br.readLine()) != null) {
+            if (line.trim().length() == 0)
+                continue;
+            String[] tokens = line.split("\t");
+            String[] colorText = tokens[2].trim().split(",");
+            Integer color = ColorTools.packRGB(Integer.parseInt(colorText[0]),
+                    Integer.parseInt(colorText[1]),
+                    Integer.parseInt(colorText[2]));
+            PathClass cls = PathClass.fromString(tokens[1].trim(), color);
+            id2cls.put(Integer.parseInt(tokens[0].trim()), cls);
+        }
+        br.close();
+        // reverse the map
+        id2cls.forEach((id, cls) -> clsName2id.put(cls.getName(), id));
     }
 
     public static CedarPathClassHandler getHandler() {
