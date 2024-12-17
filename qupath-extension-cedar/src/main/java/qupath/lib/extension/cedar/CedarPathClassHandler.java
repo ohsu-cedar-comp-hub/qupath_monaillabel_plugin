@@ -33,10 +33,11 @@ public class CedarPathClassHandler {
         String ftuFile = Settings.ftuIDClassFileName() == null ? null : Settings.ftuIDClassFileName().getValue();
         try {
             InputStream input = null;
-            if (ftuFile.trim().length() > 0) {
+            if (ftuFile != null && ftuFile.trim().length() > 0) {
                 File file = new File(Settings.localStoragePathProperty().getValue(), ftuFile.trim());
                 input = new FileInputStream(file);
-            } else {
+            }
+            else {
                 input = getClass().getClassLoader().getResourceAsStream("prostate_cancer_path_classes.txt");
             }
             loadClassIdFile(input);
