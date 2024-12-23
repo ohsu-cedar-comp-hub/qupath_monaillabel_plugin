@@ -48,7 +48,7 @@ public class ActionTrackingManager {
         if (this.trackedActions.size() == 0)
             return;
         try {
-            File csvOutputFile = new File(Settings.localStoragePathProperty().getValue(), TRACKING_FILE_NAME);
+            File csvOutputFile = new File(CedarSettings.getSettings().localStoragePathProperty().getValue(), TRACKING_FILE_NAME);
             boolean needHeader = false;
             if (!csvOutputFile.exists()) {
                 csvOutputFile.createNewFile();
@@ -76,7 +76,7 @@ public class ActionTrackingManager {
      * Get the maximum action id from the saved file.
      */
     private int findMaxId() {
-        File csvOutputFile = new File(Settings.localStoragePathProperty().getValue(), TRACKING_FILE_NAME);
+        File csvOutputFile = new File(CedarSettings.getSettings().localStoragePathProperty().getValue(), TRACKING_FILE_NAME);
         if (!csvOutputFile.exists())
             return 0;
         try {

@@ -131,6 +131,9 @@ public class AnnotationInferrer {
             params.setParam("src_image_dir", imageFile.getParentFile().getAbsolutePath());
             params.setParam("src_image_file", imageFile.getName());
             params.setParam("annotation_dir", annotationFolder.getAbsolutePath());
+            if (CedarSettings.getSettings().useModelForSegmentationOnly().getValue()) {
+                params.setParam("out_channels", "2"); // Use two out_channels for segmentation only
+            }
 
             String jsonBody = new Gson().toJson(params, RequestParams.class);
             // Somehow required by the server-side

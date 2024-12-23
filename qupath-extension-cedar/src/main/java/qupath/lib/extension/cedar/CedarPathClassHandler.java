@@ -1,16 +1,13 @@
 package qupath.lib.extension.cedar;
 
 import javafx.collections.ObservableList;
-import javafx.scene.control.ButtonType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import qupath.fx.dialogs.Dialogs;
 import qupath.lib.common.ColorTools;
 import qupath.lib.gui.QuPathGUI;
 import qupath.lib.objects.classes.PathClass;
 
 import java.io.*;
-import java.sql.Array;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,22 +25,26 @@ public class CedarPathClassHandler {
         this.loadClassIdConfig();
     }
 
-    public void loadClassIdConfig() {
+    public boolean loadClassIdConfig() {
         // Check if the file is setting
-        String ftuFile = Settings.ftuIDClassFileName() == null ? null : Settings.ftuIDClassFileName().getValue();
+        String ftuFile = CedarSettings.getSettings().ftuIDClassFileName() == null ? null : CedarSettings.getSettings().ftuIDClassFileName().getValue();
         try {
             InputStream input = null;
             if (ftuFile != null && ftuFile.trim().length() > 0) {
-                File file = new File(Settings.localStoragePathProperty().getValue(), ftuFile.trim());
+                File file = new File(CedarSettings.getSettings().localStoragePathProperty().getValue(), ftuFile.trim());
+                if (!file.exists())
+                    return false; // Do nothing if the file is not there.
                 input = new FileInputStream(file);
             }
             else {
                 input = getClass().getClassLoader().getResourceAsStream("prostate_cancer_path_classes.txt");
             }
             loadClassIdFile(input);
+            return true;
         }
         catch (IOException ex) {
             logger.error("Error in CedarPathClassHandler(): " + ex.getMessage(), ex);
+            return false;
         }
     }
 

@@ -32,7 +32,7 @@ public class ChooseFolderAction implements  Runnable {
             return; // Nothing needs to be done. The user cancel the action
         view.setFolder(imageAndAnnotFolder);
 
-        // Set available pathway classes
+        // Set available path classes
         CedarPathClassHandler.getHandler().setPathClasses(this.qupath);
     }
 
