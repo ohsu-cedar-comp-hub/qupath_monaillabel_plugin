@@ -16,6 +16,10 @@ public class ChooseFolderAction implements  Runnable {
 
     @Override
     public void run() {
+        // Close any opened image
+        if(!this.qupath.closeViewer(this.qupath.getViewer()))
+            return; // Cancel the close. Then do nothing!
+
         // Test code to add a new tab
         TabPane tabPane = this.qupath.getAnalysisTabPane();
         CedarExtensionView view = CedarExtensionView.getView();

@@ -134,6 +134,35 @@ public class AnnotationInferrer {
             if (CedarSettings.getSettings().useModelForSegmentationOnly().getValue()) {
                 params.setParam("out_channels", "2"); // Use two out_channels for segmentation only
             }
+            else if (CedarPathClassHandler.getHandler().getClassNames() != null){
+                params.setParam("out_channels", CedarPathClassHandler.getHandler().getClassNames().size() + "");
+            }
+            // If there is any model specified
+            String modelFileName = CedarSettings.getSettings().modelFileName().getValue();
+            modelFileName = modelFileName == null ? "" : modelFileName.trim();
+            if (modelFileName.length() > 0) {
+                String workingDir = CedarSettings.getSettings().localStoragePathProperty().getValue();
+                workingDir = workingDir == null ? "" : workingDir.trim();
+                if (workingDir.length() == 0)
+                    // Use the user folder
+                    workingDir = System.getProperty("user.home");
+                String filePath = new File(workingDir, modelFileName).toString();
+                logger.info("Set model_path: " + filePath);
+                params.setParam("model_path", filePath);
+            }
+            // If there is any class id and name mapping file
+            String classNameIdFile = CedarSettings.getSettings().ftuIDClassFileName().getValue();
+            classNameIdFile = classNameIdFile == null ? "" : classNameIdFile.trim();
+            if (classNameIdFile.length() > 0) {
+                String workingDir = CedarSettings.getSettings().localStoragePathProperty().getValue();
+                workingDir = workingDir == null ? "" : workingDir.trim();
+                if (workingDir.length() == 0)
+                    // Use the user folder
+                    workingDir = System.getProperty("user.home");
+                String filePath = new File(workingDir, classNameIdFile).toString();
+                logger.info("Set FTU class_id_color_file: " + filePath);
+                params.setParam("class_id_name_color_file", filePath);
+            }
 
             String jsonBody = new Gson().toJson(params, RequestParams.class);
             // Somehow required by the server-side

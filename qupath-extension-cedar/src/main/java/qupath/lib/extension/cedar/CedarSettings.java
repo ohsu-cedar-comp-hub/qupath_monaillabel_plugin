@@ -14,6 +14,7 @@ public class CedarSettings {
     private StringProperty localStoragePath = PathPrefs.createPersistentPreference("localStoragePath",
             System.getProperty("user.home") + File.separator + "QuPath" + File.separator + "cedar_extension" + File.separator);
     private StringProperty cancerFTUIDClassFile = PathPrefs.createPersistentPreference("FTUIdClassFile", null);
+    private StringProperty modelFile = PathPrefs.createPersistentPreference("ModelFile", null);
     private BooleanProperty useModelForSegmentationOnly = PathPrefs.createPersistentPreference(
             "useModelForSegmentationOnly", Boolean.FALSE);
     private boolean preferenceAdded = false;
@@ -40,6 +41,10 @@ public class CedarSettings {
         return cancerFTUIDClassFile;
     }
 
+    public StringProperty modelFileName() {
+        return modelFile;
+    }
+
     public BooleanProperty useModelForSegmentationOnly() {
         return useModelForSegmentationOnly;
     }
@@ -56,6 +61,8 @@ public class CedarSettings {
                 "Working directory", "CEDAR", "Local Storage Path for cedar files (e.g. tracking)");
         qupath.getPreferencePane().addPropertyPreference(ftuIDClassFileName(), String.class,
                 "FTU ID Class File (in working directory)", "CEDAR", "File for mapping between id and class");
+        qupath.getPreferencePane().addPropertyPreference(modelFileName(), String.class,
+                "Model File (in working directory)", "CEDAR", "File for trained model weights");
         qupath.getPreferencePane().addPropertyPreference(useModelForSegmentationOnly(), Boolean.class,
                 "Use Inference Model for Segmentation Only", "CEDAR", "Use the AI model for segmentation only without classification");
         this.preferenceAdded = true;
