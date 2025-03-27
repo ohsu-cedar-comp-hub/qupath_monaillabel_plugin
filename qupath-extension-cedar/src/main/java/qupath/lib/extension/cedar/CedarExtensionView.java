@@ -286,7 +286,8 @@ public class CedarExtensionView {
                         String oldValue = CedarPathClassHandler.getHandler().getPathClass(annotation.getClassId()).getName();
                         Integer id = CedarPathClassHandler.getHandler().getClassId(pathObject.getPathClass().getName());
                         annotation.setClassId(id);
-                        annotation.setAnnotationStyle(AnnotationType.auto_edited);
+                        if (annotation.getAnnotationStyle() != AnnotationType.manual)
+                            annotation.setAnnotationStyle(AnnotationType.auto_edited);
                         String newValue = annotation.getClassName();
                         trackAction(action,
                                 annotation.toTrackingString(),
@@ -709,7 +710,8 @@ public class CedarExtensionView {
             CedarAnnotation annotation = event.getRowValue();
             String previousClassName = annotation.getClassName();
             annotation.setClassName(event.getNewValue());
-            annotation.setAnnotationStyle(AnnotationType.auto_edited);
+            if (annotation.getAnnotationStyle() != AnnotationType.manual)
+                annotation.setAnnotationStyle(AnnotationType.auto_edited);
             this.annotationTable.refresh(); // TODO: Look for a method to refresh a cell only
             updateAnnotationBtn.setDisable(false);
             trackAction(action,
@@ -755,8 +757,8 @@ public class CedarExtensionView {
             CedarAnnotation annotation = event.getRowValue();
             Integer oldId = annotation.getClassId();
             annotation.setClassId(event.getNewValue());
-            // Reset the type to manual
-            annotation.setAnnotationStyle(AnnotationType.auto_edited);
+            if (annotation.getAnnotationStyle() != AnnotationType.manual)
+                annotation.setAnnotationStyle(AnnotationType.auto_edited);
             // This is not efficient. Use it for the time being to synchronize the whole row
             annotationTable.refresh();
             updateAnnotationBtn.setDisable(false);
