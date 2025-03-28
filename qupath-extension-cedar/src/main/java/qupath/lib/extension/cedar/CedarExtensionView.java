@@ -61,7 +61,9 @@ import java.util.stream.Collectors;
 public class CedarExtensionView {
     private final static Logger logger = LoggerFactory.getLogger(CedarExtensionView.class);
 
-    private final String TAB_NAME = "CEDAR";
+//    private final String TAB_NAME = "CEDAR";
+    // As of March 28, 2025, we call our extension "MiroSCOPE"
+    private final String TAB_NAME = CedarExtension.EXTENSION_NAME;
     private Label folderLabel;
     private Pane contentPane;
     // The current folder

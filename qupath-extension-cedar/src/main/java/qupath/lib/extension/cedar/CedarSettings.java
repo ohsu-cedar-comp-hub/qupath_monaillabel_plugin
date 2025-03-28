@@ -57,14 +57,16 @@ public class CedarSettings {
             return;
         }
 
+        String categoryName = CedarExtension.EXTENSION_NAME;
+
         qupath.getPreferencePane().addPropertyPreference(localStoragePathProperty(), String.class,
-                "Working directory", "CEDAR", "Local Storage Path for cedar files (e.g. tracking)");
+                "Working directory", categoryName, "Local Storage Path for cedar files (e.g. tracking)");
         qupath.getPreferencePane().addPropertyPreference(ftuIDClassFileName(), String.class,
-                "FTU ID Class File (in working directory)", "CEDAR", "File for mapping between id and class");
+                "FTU ID Class File (in working directory)", categoryName, "File for mapping between id and class");
         qupath.getPreferencePane().addPropertyPreference(modelFileName(), String.class,
-                "Model File (in working directory)", "CEDAR", "File for trained model weights");
+                "Model File (in working directory)", categoryName, "File for trained model weights");
         qupath.getPreferencePane().addPropertyPreference(useModelForSegmentationOnly(), Boolean.class,
-                "Use Inference Model for Segmentation Only", "CEDAR", "Use the AI model for segmentation only without classification");
+                "Use Inference Model for Segmentation Only", categoryName, "Use the AI model for segmentation only without classification");
         this.preferenceAdded = true;
     }
 

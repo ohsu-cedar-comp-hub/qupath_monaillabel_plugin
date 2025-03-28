@@ -9,6 +9,7 @@ import qupath.lib.gui.prefs.PathPrefs;
 import qupath.lib.gui.tools.MenuTools;
 
 public class CedarExtension implements QuPathExtension {
+    public static final String EXTENSION_NAME = "MiroSCOPE";
 
     @Override
     public void installExtension(QuPathGUI qupath) {
@@ -16,13 +17,13 @@ public class CedarExtension implements QuPathExtension {
         chooserFolderAction.setAccelerator(KeyCombination.keyCombination("ctrl+i"));
         // This extension is based on Monai Label. Therefore, the following should be reliable.
         // Otherwise, a new menu will be created.
-        var menu = qupath.getMenu("CEDAR", true);
+        var menu = qupath.getMenu(EXTENSION_NAME, true);
         MenuTools.addMenuItems(menu, chooserFolderAction);
     }
 
     @Override
     public String getName() {
-        return "CEDAR Extension";
+        return EXTENSION_NAME;
     }
 
     @Override
