@@ -53,6 +53,7 @@ import java.io.FileFilter;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 /**
  * The view of the cedar extension. A new tab will be added to the analysis tab panel of the main QuPathGUI.
@@ -812,7 +813,7 @@ public class CedarExtensionView {
         logger.info("Saving annotations for " + imageList.getSelectionModel().getSelectedItem());
         // Save the data into geojson
         File annotationFile = getAnnotationFileForImage(currentImageFile, true);
-        // Since we have used filer, we need to use the source of the original filtered list
+        // Since we have used filter, we need to use the source of the original filtered list
         List<PathObject> pathObjects = getTableSource().stream().map(a -> a.getPathObject()).toList();
         try {
             backupAnnotations(annotationFile);
@@ -1037,6 +1038,9 @@ public class CedarExtensionView {
                 filterTF.clear();
             boolean rtn = parseAnnotationFile(annotationFile);
             trackAction(action,"Annotation File", annotationFile.getAbsolutePath());
+            // Count the classes
+            CedarExtensionAction loadedAction = ActionTrackingManager.getManager().createAction("Annotation Loaded");
+            trackAction(loadedAction, "Annotation Counts", countLoadedAnnotations());
             return rtn;
         } catch (IOException e) {
             Dialogs.showErrorMessage("Error in Opening Annotation",
@@ -1044,6 +1048,27 @@ public class CedarExtensionView {
             logger.error("Cannot open annotation for: " + imageFile.getAbsolutePath(), e);
             return false;
         }
+    }
+
+    private String countLoadedAnnotations() {
+        List<CedarAnnotation> annotations = getTableSource();
+        StringBuilder builder = new StringBuilder();
+        int total = 0;
+        if (annotations != null && annotations.size() > 0) {
+            Map<Integer, Integer> id2count = new HashMap<>();
+            for (CedarAnnotation annotation : annotations) {
+                id2count.put(annotation.getClassId(),
+                             id2count.getOrDefault(annotation.getClassId(), 0) + 1);
+            }
+            List<Integer> ids = id2count.keySet().stream().sorted().collect(Collectors.toUnmodifiableList());
+            for (Integer id : ids) {
+                Integer count = id2count.get(id);
+                total += count;
+                builder.append(id + ":" + count + ",");
+            }
+        }
+        builder.append("total:" + total);
+        return builder.toString();
     }
 
     // For the time being, don't track this action since it is used by infer_annoation,
