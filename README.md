@@ -16,11 +16,6 @@ MiroSCOPE enhances QuPath by integrating advanced AI capabilities to support aut
 
 To use MiroSCOPE, download the appropriate build for your system from the [dists](./dists) folder.
 
-## Platforms Supported
-
-- **macOS (Apple Silicon)**
-- **Windows 11**
-
 ## Source Code
 
 The source code is available in the the [qupath-extension-cedar](./qupath-extension-cedar) folder.
