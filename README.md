@@ -1,72 +1,38 @@
-[![Image.sc forum](https://img.shields.io/badge/dynamic/json.svg?label=forum&url=https%3A%2F%2Fforum.image.sc%2Ftags%2Fqupath.json&query=%24.topic_list.tags.0.topic_count&colorB=brightgreen&suffix=%20topics&logo=data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAAOCAYAAAAfSC3RAAABPklEQVR42m3SyyqFURTA8Y2BER0TDyExZ+aSPIKUlPIITFzKeQWXwhBlQrmFgUzMMFLKZeguBu5y+//17dP3nc5vuPdee6299gohUYYaDGOyyACq4JmQVoFujOMR77hNfOAGM+hBOQqB9TjHD36xhAa04RCuuXeKOvwHVWIKL9jCK2bRiV284QgL8MwEjAneeo9VNOEaBhzALGtoRy02cIcWhE34jj5YxgW+E5Z4iTPkMYpPLCNY3hdOYEfNbKYdmNngZ1jyEzw7h7AIb3fRTQ95OAZ6yQpGYHMMtOTgouktYwxuXsHgWLLl+4x++Kx1FJrjLTagA77bTPvYgw1rRqY56e+w7GNYsqX6JfPwi7aR+Y5SA+BXtKIRfkfJAYgj14tpOF6+I46c4/cAM3UhM3JxyKsxiOIhH0IO6SH/A1Kb1WBeUjbkAAAAAElFTkSuQmCC)](https://forum.image.sc/tag/qupath)
-[![Total downloads](https://img.shields.io/github/downloads/qupath/qupath/total?style=flat)](https://github.com/qupath/qupath/releases)
-[![Latest release downloads](https://img.shields.io/github/downloads/qupath/qupath/latest/total?style=flat)](https://github.com/qupath/qupath/releases/latest)
-[![Paper](https://zenodo.org/badge/DOI/10.1038/s41598-017-17204-5.svg)](https://doi.org/10.1038/s41598-017-17204-5)
-[![Twitter](https://img.shields.io/twitter/follow/qupath?style=flat)](http://twitter.com/qupath)
+# MiroSCOPE
 
-# QuPath
+**MiroSCOPE** is an AI-driven platform for **functional tissue unit (FTU) annotation**, built as an extension to [QuPath](https://qupath.github.io/), a popular open-source software for digital pathology image analysis.
 
-**QuPath is open source software for bioimage analysis**.
+## Overview
 
-Features include:
+MiroSCOPE enhances QuPath by integrating advanced AI capabilities to support automated and semi-automated annotation of functional tissue units. This extension is designed to accelerate histological analysis and improve reproducibility in tissue-based studies.
 
-* Lots of tools to annotate and view images, including whole slide & microscopy images
-* Workflows for brightfield & fluorescence image analysis
-* New algorithms for common tasks, including cell segmentation, tissue microarray dearraying
-* Interactive machine learning for object & pixel classification
-* Customization, batch-processing & data interrogation by scripting
-* Easy integration with other tools, including ImageJ
+## Key Features
 
-To **download QuPath**, go to the [Latest Releases](https://github.com/qupath/qupath/releases/latest) page.
+- Seamless integration with QuPath
+- AI-assisted FTU detection and annotation
+- Support for large-scale histopathology image analysis
 
-For **documentation**, see [https://qupath.readthedocs.io](https://qupath.readthedocs.io)
+## Installation
 
-For **help & support**, try [image.sc](https://forum.image.sc/tag/qupath) or the [links here](https://qupath.readthedocs.io/en/latest/docs/starting/help.html)
+To use MiroSCOPE, download the appropriate build for your system from the [dists](./dists) folder.
 
-To **build QuPath from source** see [here](https://qupath.readthedocs.io/en/latest/docs/reference/building.html).
+## Platforms Supported
 
-**If you find QuPath useful in work that you publish, please [_cite the publication_](https://qupath.readthedocs.io/en/latest/docs/intro/citing.html)!**
+- **macOS (Apple Silicon)**
+- **Windows 11**
 
-*QuPath is an academic project intended for research use only.*
-*The software has been made freely available under the terms of the [GPLv3](https://github.com/qupath/qupath/blob/main/LICENSE) in the hope it is useful for this purpose, and to make analysis methods open and transparent.*
+## Source Code
 
+The source code is available in the the [qupath-extension-cedar](./qupath-extension-cedar) folder
 
-## Development & support
+## Citation
 
-QuPath is being actively developed at the University of Edinburgh by:
+If you use MiroSCOPE in your work, please cite the associated publication (TBD).
 
-* [Pete Bankhead](https://github.com/petebankhead) (creator)
-* [Fiona Inglis](https://github.com/finglis)
-* [Alan O'Callaghan](https://github.com/alanocallaghan)
-* [Léo Leplat](https://github.com/Rylern)
-* [Laura Nicolás-Sáenz](https://github.com/lauranicolass)
+## License
 
-Past QuPath dev team members:
+As specified in this repo.
 
-* Melvin Gelbard
-* Mahdi Lamb
+## Contact
 
-For all contributors, see [here](https://github.com/qupath/qupath/graphs/contributors).
-
-This work is made possible in part thanks to funding from:
-
-* [Wellcome Trust Technology Development Grant](https://wellcome.org/grant-funding/people-and-projects/grants-awarded/qupath-advanced-open-platform-next-generation) (2022-Present)
-* [CZI Essential Open Source Software for Science, Cycle 4](https://chanzuckerberg.com/eoss/proposals/qupath-boosting-bioimage-analysis-for-users-developers/) (2022-Present)
-* [CZI Essential Open Source Software for Science, Cycle 1](https://chanzuckerberg.com/eoss/proposals/qupath-open-source-bioimage-analysis-and-quantitative-pathology/) (2020-2022)
-* Wellcome Trust / University of Edinburgh Institutional Strategic Support Fund (ISSF3) (2019-2020)
-
-
-----
-
-## Background
-
-QuPath was first designed, implemented and documented by Pete Bankhead while at Queen's University Belfast, with additional code and testing by Jose Fernandez.
-
-Versions up to v0.1.2 are copyright 2014-2016 The Queen's University of Belfast, Northern Ireland.
-These were written as part of projects that received funding from:
-
-* Invest Northern Ireland (RDO0712612)
-* Cancer Research UK Accelerator (C11512/A20256)
-
-
-![Image](https://raw.githubusercontent.com/wiki/qupath/qupath/images/qupath_demo.jpg)
+For questions, feedback, or bug reports, please contact the development team or submit an issue through the appropriate repository.
