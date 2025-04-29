@@ -23,7 +23,13 @@ To use MiroSCOPE, download the appropriate build for your system from the [dists
 
 ## Source Code
 
-The source code is available in the the [qupath-extension-cedar](./qupath-extension-cedar) folder
+The source code is available in the the [qupath-extension-cedar](./qupath-extension-cedar) folder.
+
+## Inference and Fine-tuning
+
+The Python-based backend used to support inference and model fine-tuning is hosted 
+at [monailabel_cedar_app](https://github.com/ohsu-cedar-comp-hub/monailabel_cedar_app). 
+Follow the instructions there to install the backend.
 
 ## Citation
 
