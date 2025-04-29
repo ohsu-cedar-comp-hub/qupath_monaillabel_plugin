@@ -15,7 +15,7 @@ MiroSCOPE enhances QuPath by integrating advanced AI capabilities to support aut
 ## Installation
 
 To use MiroSCOPE, download the appropriate build for your system from the [dists](./dists) folder.
-
+Test
 ## Platforms Supported
 
 - **macOS (Apple Silicon)**
