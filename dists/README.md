@@ -4,11 +4,11 @@ This release includes two builds of **MiroSCOPE (QuPath 0.6.0-SNAPSHOT)**, tailo
 
 ## Available Builds
 
-### 1. [QuPath-0.6.0-SNAPSHOT-arm64.zip](QuPath-0.6.0-SNAPSHOT-arm64.zip)
+### 1. [QuPath-0.6.0-SNAPSHOT-arm64.zip](https://www.synapse.org/Synapse:syn66348738)
 - **Platform**: macOS (Apple Silicon)
 - **Tested on**: macOS 14.5 (Sonoma)
 
-### 2. [QuPath-0.6.0-SNAPSHOT-win.zip](QuPath-0.6.0-SNAPSHOT-win.zip)
+### 2. [QuPath-0.6.0-SNAPSHOT-win.zip](https://www.synapse.org/Synapse:syn66348740)
 - **Platform**: Windows
 - **Tested on**: Windows 11
 
