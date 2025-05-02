@@ -16,6 +16,19 @@ MiroSCOPE enhances QuPath by integrating advanced AI capabilities to support aut
 
 To use MiroSCOPE, download the appropriate build for your system from the [dists](./dists) folder.
 
+You may build from the source code in this repo by following the instruction in [QuPath_README](./QuPath_README.md).
+
+## Getting Started with MiroSCOPE
+
+To use MiroSCOPE, click the "MiroSCOPE" menu in the main menu bar. Choose the folder containing your images. 
+The selected folder must contain two sub folders: images and annotations (optional). 
+All your image files should be placed into the images folder. The annotations 
+folder, if present, should contain annotation files for individual images. This folder structure **must be strictly followed**.
+
+To test MiroSCOPE's features, we have provided a sample image set in the [test-images](./test-images) folder: 
+- The [annotated_image](./test-images/annotated_image) folder as an example of a previously annotated image
+- The [unannotated_image](./test-images/unannotated_image) folder as an example of an image that has not been annotated
+
 ## Source Code
 
 The source code is available in the the [qupath-extension-cedar](./qupath-extension-cedar) folder.
