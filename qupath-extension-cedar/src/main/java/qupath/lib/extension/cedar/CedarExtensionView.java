@@ -53,6 +53,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileFilter;
 import java.io.IOException;
+import java.text.NumberFormat;
 import java.util.*;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
@@ -99,9 +100,11 @@ public class CedarExtensionView {
     // A flag to block the changes to self
     private boolean changeFromObject;
 
-    private List<String> distinctClassNames = new ArrayList<>();
-    final ObservableList<String> items = FXCollections.observableArrayList();
-    CheckComboBox<String> checkComboBox = new CheckComboBox<>(items);
+    private final ObservableList<String> items = FXCollections.observableArrayList();
+    private CheckComboBox<String> checkComboBox = new CheckComboBox<>(items);
+    private Predicate<CedarAnnotation> selectedClassNamesFilter =  null;
+    private String searchText = null;
+    private String selectedColumnName = null;
 
     private static CedarExtensionView view;
 
@@ -361,8 +364,14 @@ public class CedarExtensionView {
         SplitPane splitPane = new SplitPane();
         splitPane.setOrientation(Orientation.VERTICAL);
 
+        // Two sections added to the bottom of the table pane
+        // VBox to hold the HBoxes
+        VBox vbox = new VBox(10); // 10px spacing
+        vbox.setPadding(new Insets(10));
+        vbox.getChildren().addAll(createClassNameFilter(), createAnimationPane());
+
         BorderPane tablePane = new BorderPane();
-        tablePane.setBottom(createAnimationPane());
+        tablePane.setBottom(vbox);
         tablePane.setCenter(annotationTable);
         tablePane.setTop(createFilter());
 
@@ -520,22 +529,49 @@ public class CedarExtensionView {
         }
     }
 
-    private HBox createFilter() {
-        // Create a ChoiceBox
-        ChoiceBox<String> choiceBox = new ChoiceBox<>();
-        // Add column names to the ChoiceBox
-        choiceBox.getItems().addAll("class id", "class name", "type", "meta data");
-
+    private HBox createClassNameFilter() {
         // and listen to the relevant events (e.g. when the selected indices or
         // selected items change).
+        Label percentLabel = new Label("");
         checkComboBox.getCheckModel().getCheckedItems().addListener((ListChangeListener<String>) c -> {
             List<String> clsNms = c.getList().stream().collect(Collectors.toUnmodifiableList());
-            filterAnnotationTable(clsNms);
+            this.setClassNamesFilter(clsNms);
+            this.filterAnnotationTable();
+
+            if(!this.getTableSource().isEmpty()) {
+                double percentage = (double) annotationTable.getItems().size() / this.getTableSource().size();
+                String formattedPercentage = formatPercentage(percentage);
+                percentLabel.setText(formattedPercentage);
+            }
+        });
+
+        Button reset = new Button("All Classes");
+        reset.setOnAction(e -> {
+            checkComboBox.getCheckModel().clearChecks();
+            this.setClassNamesFilter(this.items);
+            filterAnnotationTable();
         });
 
         checkComboBox.setShowCheckedCount(true);
         checkComboBox.setTitle("Classes");
 
+        // Set host HBox
+        HBox filters = new HBox(checkComboBox, percentLabel, reset);
+        filters.setPadding(new Insets(2));
+        filters.setAlignment(Pos.CENTER);
+        return filters;
+    }
+
+    public static String formatPercentage(double number) {
+        NumberFormat percentFormatter = NumberFormat.getPercentInstance(Locale.getDefault());
+        return percentFormatter.format(number);
+    }
+
+    private HBox createFilter() {
+        // Create a ChoiceBox
+        ChoiceBox<String> choiceBox = new ChoiceBox<>();
+        // Add column names to the ChoiceBox
+        choiceBox.getItems().addAll("class id", "class name", "type", "meta data");
 
         // Set a default value
         choiceBox.setValue("class name");
@@ -546,9 +582,9 @@ public class CedarExtensionView {
         TextField filterField = new TextField();
         filterField.setTooltip(new Tooltip("Return or enter to filter"));
         filterField.setOnAction(event -> {
-            String searchText = filterField.getText().trim();
-            String selectedColumnName = choiceBox.getSelectionModel().getSelectedItem();
-            filterAnnotationTable(searchText, selectedColumnName);
+            this.searchText = filterField.getText().trim();
+            this.selectedColumnName = choiceBox.getSelectionModel().getSelectedItem();
+            filterAnnotationTable();
         });
         this.filterTF = filterField; // Keep at the object level so that we can reset it after loading
 
@@ -556,46 +592,41 @@ public class CedarExtensionView {
         Button reset = new Button("Reset");
         reset.setOnAction(e -> {
             filterField.setText("");
-            filterAnnotationTable(null, null);
+            this.searchText = null;
+            this.selectedColumnName = null;
+            filterAnnotationTable();
         });
 
         // Set host HBox
-        HBox filters = new HBox(6, label, checkComboBox, choiceBox, filterField, reset);
+        HBox filters = new HBox(6, label, choiceBox, filterField, reset);
         filters.setPadding(new Insets(2));
         filters.setAlignment(Pos.CENTER);
         return filters;
     }
 
-    private void filterAnnotationTable(List<String> classNames) {
+    private void setClassNamesFilter(List<String> classNames) {
         Predicate<CedarAnnotation> filter = null;
         if(classNames == null) {
             filter = cedarAnnotation -> true;
         }
         else {
-            filter = cedarAnnotation -> cedarAnnotation.getClassName().toLowerCase().contains(classNames.getFirst().toLowerCase());
-            Predicate<CedarAnnotation> tmpFilter = null;
-            for(String clsNm : classNames){
-                tmpFilter = cedarAnnotation -> cedarAnnotation.getClassName().toLowerCase().contains(clsNm.toLowerCase());
-                filter = filter.or(tmpFilter);
+            for (String clsName : classNames) {
+                Predicate<CedarAnnotation> tmp = cedarAnnotation -> cedarAnnotation.getClassName().equalsIgnoreCase(clsName);
+                if (filter == null)
+                    filter = tmp;
+                else
+                    filter = filter.or(tmp);
             }
         }
-
-        if (filter != null) {
-            SortedList<CedarAnnotation> sortedList = (SortedList<CedarAnnotation>) annotationTable.getItems();
-            FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) sortedList.getSource();
-            tableData.setPredicate(filter);
-            changeFromObject = true;
-            updatePathObjectHierarchy();
-            changeFromObject = false;
-        }
+        this.selectedClassNamesFilter = filter;
     }
-    private void filterAnnotationTable(String searchText, String selectedColumnName) {
+
+    private void filterAnnotationTable() {
         Predicate<CedarAnnotation> filter = null;
         if (selectedColumnName == null) {
             filter = cedarAnnotation -> true;
         } else {
             switch (selectedColumnName) {
-                case "check box":
                 case "class name":
                     filter = cedarAnnotation -> cedarAnnotation.getClassName().toLowerCase().contains(searchText.toLowerCase());
                     break;
@@ -615,7 +646,21 @@ public class CedarExtensionView {
                     break;
             }
         }
+
+        // If the filter is null after checking the searchText, check className filter and assign if not null
+        if(filter == null) {
+            if(this.selectedClassNamesFilter != null) {
+                filter = this.selectedClassNamesFilter;
+            }
+        }
+        else {
+            if(this.selectedClassNamesFilter != null)
+                filter = filter.and(this.selectedClassNamesFilter);
+        }
+
+        // Check value status of filter after updating with the selected ClassNames
         if (filter != null) {
+
             SortedList<CedarAnnotation> sortedList = (SortedList<CedarAnnotation>) annotationTable.getItems();
             FilteredList<CedarAnnotation> tableData = (FilteredList<CedarAnnotation>) sortedList.getSource();
             tableData.setPredicate(filter);
@@ -1246,13 +1291,8 @@ public class CedarExtensionView {
             cedarAnnotation.setClassName(pathCls.getName());
         }
 
-        // Create a list of the class names for selection
-        this.distinctClassNames = cedarAnnotations.stream()
-                .map(CedarAnnotation::getClassName)
-                .distinct()
-                .toList();
-        this.items.addAll(this.distinctClassNames);
-
+        // Set the list of options based on distinct class names in the table
+        this.setCheckComboBox(cedarAnnotations);
         return cedarAnnotations;
     }
 
@@ -1260,14 +1300,21 @@ public class CedarExtensionView {
         List<PathObject> geoObjects = PathIO.readObjects(annotationFile);
         // Convert it into a list of CedarAnnotation
         ObservableList<CedarAnnotation> cedarAnnotations = FXCollections.observableArrayList(geoObjects.stream().map(p -> new CedarAnnotation(p)).toList());
+
+        // Set the list of options based on distinct class names in the table
+        this.setCheckComboBox(cedarAnnotations);
+        return cedarAnnotations;
+    }
+
+    private void setCheckComboBox(ObservableList<CedarAnnotation> cedarAnnotations) {
         // Create a list of the class names for selection
-        this.distinctClassNames = cedarAnnotations.stream()
+        List<String> distinctClassNames = new ArrayList<>();
+        distinctClassNames = cedarAnnotations.stream()
                 .map(CedarAnnotation::getClassName)
                 .distinct()
                 .toList();
         final ObservableList<String> strings = FXCollections.observableArrayList();
-        this.items.addAll(this.distinctClassNames);
-        return cedarAnnotations;
+        this.items.addAll(distinctClassNames);
     }
 
     /**
