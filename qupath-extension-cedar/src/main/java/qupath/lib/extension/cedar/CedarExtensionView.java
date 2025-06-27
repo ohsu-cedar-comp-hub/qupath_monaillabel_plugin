@@ -49,6 +49,7 @@ import qupath.lib.roi.ROIs;
 import qupath.lib.roi.interfaces.ROI;
 import qupath.lib.scripting.QP;
 
+import javax.swing.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.FileFilter;
@@ -366,8 +367,8 @@ public class CedarExtensionView {
 
         // Two sections added to the bottom of the table pane
         // VBox to hold the HBoxes
-        VBox vbox = new VBox(10); // 10px spacing
-        vbox.setPadding(new Insets(10));
+        VBox vbox = new VBox(2); // 10px spacing
+//        vbox.setPadding(new Insets(10));
         vbox.getChildren().addAll(createClassNameFilter(), createAnimationPane());
 
         BorderPane tablePane = new BorderPane();
@@ -539,13 +540,16 @@ public class CedarExtensionView {
             this.filterAnnotationTable();
 
             if(!this.getTableSource().isEmpty()) {
-                double percentage = (double) annotationTable.getItems().size() / this.getTableSource().size();
+                int displayed = annotationTable.getItems().size();
+                int total = this.getTableSource().size();
+                double percentage = (double) displayed / total;
                 String formattedPercentage = formatPercentage(percentage);
-                percentLabel.setText(formattedPercentage);
+                String text = displayed + "/" + total + "(" + formattedPercentage + ")";
+                percentLabel.setText(text);
             }
         });
 
-        Button reset = new Button("All Classes");
+        Button reset = new Button("All");
         reset.setOnAction(e -> {
             checkComboBox.getCheckModel().clearChecks();
             this.setClassNamesFilter(this.items);
@@ -556,8 +560,11 @@ public class CedarExtensionView {
         checkComboBox.setTitle("Classes");
 
         // Set host HBox
-        HBox filters = new HBox(checkComboBox, percentLabel, reset);
-        filters.setPadding(new Insets(2));
+        HBox filters = new HBox(6, checkComboBox, percentLabel, reset);
+        filters.setSpacing(4);
+        filters.setBorder(new Border(new BorderStroke(
+                Color.LIGHTGRAY, BorderStrokeStyle.SOLID, new CornerRadii(2), new BorderWidths(1))
+        ));
         filters.setAlignment(Pos.CENTER);
         return filters;
     }
@@ -1308,12 +1315,12 @@ public class CedarExtensionView {
 
     private void setCheckComboBox(ObservableList<CedarAnnotation> cedarAnnotations) {
         // Create a list of the class names for selection
-        List<String> distinctClassNames = new ArrayList<>();
-        distinctClassNames = cedarAnnotations.stream()
+        List<String> distinctClassNames = cedarAnnotations.stream()
                 .map(CedarAnnotation::getClassName)
                 .distinct()
+                .sorted()
                 .toList();
-        final ObservableList<String> strings = FXCollections.observableArrayList();
+        this.items.clear(); // Clear everything first
         this.items.addAll(distinctClassNames);
     }
 
